@@ -6,8 +6,10 @@ Opinions live in [-1, 1]. Each step every agent:
    confidence bound ``eps`` of its own, and moves a fraction ``mu`` of the way
    toward their mean (HK update restricted to the graph);
 2. if it is "informed" (consumes media), receives the input signal ``u(t)``
-   scaled by its own susceptibility ``w_in[i]`` and the global ``outrage gain``;
-3. gets a little idiosyncratic noise, and is clipped back to [-1, 1].
+   scaled by its own susceptibility ``w_in[i]`` and the global outrage ``gain``;
+3. is pulled back toward its own prior opinion at its personal stubbornness rate
+   (Friedkin-Johnsen anchoring; this is what gives the reservoir fading memory);
+4. gets a little idiosyncratic noise, and is clipped back to [-1, 1].
 
 The opinion vector over time is the reservoir state.
 """
@@ -26,6 +28,7 @@ class Params:
     gain: float = 0.3           # outrage gain on the input
     informed_frac: float = 0.3  # fraction of agents exposed to the input
     noise: float = 0.01         # idiosyncratic opinion noise
+    anchor: tuple = (0.02, 0.2) # range of per-agent stubbornness (pull back toward prior opinion)
     seed: int = 0
 
 
@@ -53,7 +56,9 @@ class OpinionReservoir:
         informed = rng.random(n) < self.p.informed_frac
         # Susceptibility: sign says which way the agent reads the news, magnitude how hard.
         self.w_in = informed * rng.uniform(-1, 1, n)
-        self.x = rng.uniform(-1, 1, n)
+        self.prior = rng.uniform(-1, 1, n)
+        self.lam = rng.uniform(*self.p.anchor, n)
+        self.x = self.prior.copy()
 
     def step(self, u):
         p, x = self.p, self.x
@@ -61,6 +66,7 @@ class OpinionReservoir:
         M = (self.A & close) | np.eye(p.n_agents, dtype=bool)
         social_mean = (M @ x) / M.sum(1)
         x = (1 - p.mu) * x + p.mu * social_mean
+        x = x + self.lam * (self.prior - x)
         x = x + p.gain * self.w_in * u + p.noise * self.rng.standard_normal(p.n_agents)
         self.x = np.clip(x, -1.0, 1.0)
         return self.x
