@@ -2,13 +2,18 @@
 
 import numpy as np
 
+ALPHA_GRID = np.logspace(-8, 0, 9)
+
 
 def add_bias(X):
     return np.hstack([X, np.ones((len(X), 1))])
 
 
 def ridge_fit(X, y, alpha=1e-4):
-    """Closed-form ridge. X: (T, N), y: (T,) or (T, K). Returns weights with bias as the last row."""
+    """Closed-form ridge. X: (T, N), y: (T,) or (T, K). Returns weights with bias as the last row.
+
+    The penalty is alpha * T, so alpha is per-sample and comparable across run lengths.
+    """
     Xb = add_bias(X)
     G = Xb.T @ Xb
     G[np.diag_indices_from(G)] += alpha * len(Xb)
@@ -17,6 +22,13 @@ def ridge_fit(X, y, alpha=1e-4):
 
 def ridge_predict(X, W):
     return add_bias(X) @ W
+
+
+def cv_alpha(X, Y, alphas=ALPHA_GRID, val_frac=0.2):
+    """Pick alpha on a validation block at the end of the training data (no peeking at test)."""
+    cut = int(len(X) * (1 - val_frac))
+    errs = [np.mean((ridge_predict(X[cut:], ridge_fit(X[:cut], Y[:cut], a)) - Y[cut:]) ** 2) for a in alphas]
+    return float(alphas[int(np.argmin(errs))])
 
 
 def r2(y, yhat):
@@ -36,14 +48,18 @@ def split(X, washout, train_frac=0.7):
     return slice(washout, cut), slice(cut, len(X))
 
 
-def memory_capacity(X, u, max_delay=30, washout=200, alpha=1e-4):
+def memory_capacity(X, u, max_delay=30, washout=200, alpha=1e-4, train_frac=0.7):
     """Jaeger's short-term memory capacity: sum over delays k of r^2(u(t-k), readout_k(x(t))).
 
-    Returns (total MC, per-delay curve). Scored on held-out data.
+    Returns (total MC, per-delay curve). Scored on held-out data. ``alpha="cv"`` picks the
+    ridge penalty on a validation block inside the training data.
     """
-    tr, te = split(X, washout)
+    assert washout >= max_delay, "washout must cover the longest delay (np.roll wraps around)"
+    tr, te = split(X, washout, train_frac)
     delays = np.arange(1, max_delay + 1)
     Y = np.stack([np.roll(u, k) for k in delays], axis=1)  # column k-1 is u(t-k)
+    if alpha == "cv":
+        alpha = cv_alpha(X[tr], Y[tr])
     W = ridge_fit(X[tr], Y[tr], alpha)
     Yhat = ridge_predict(X[te], W)
     curve = np.array([r2(Y[te, j], Yhat[:, j]) for j in range(len(delays))])
@@ -70,3 +86,9 @@ def narma_score(X, u, washout=200, alpha=1e-4):
     tr, te = split(X[:-1], washout)
     W = ridge_fit(X[tr], target[tr], alpha)
     return nrmse(target[te], ridge_predict(X[te], W))
+
+
+def participation_ratio(X):
+    """Effective dimensionality of the states: (sum lambda)^2 / sum lambda^2 of their covariance."""
+    lam = np.clip(np.linalg.eigvalsh(np.cov(X, rowvar=False)), 0, None)
+    return float(lam.sum() ** 2 / (lam ** 2).sum())

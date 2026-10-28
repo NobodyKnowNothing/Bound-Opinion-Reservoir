@@ -4,9 +4,13 @@ Opinions live in [-1, 1]. Each step every agent:
 
 1. looks at the agents it follows (plus itself) whose opinions lie within the
    confidence bound ``eps`` of its own, and moves a fraction ``mu`` of the way
-   toward their mean (HK update restricted to the graph);
+   toward their weighted mean (HK update restricted to the graph). With
+   ``outrage = 0`` every visible account counts equally. With ``outrage > 0`` the
+   feed amplifies extreme voices: account j's weight is exp(outrage * |x_j|), so
+   the most extreme visible opinions dominate what an agent averages over;
 2. if it is "informed" (consumes media), receives the input signal ``u(t)``
-   scaled by its own susceptibility ``w_in[i]`` and the global outrage ``gain``;
+   scaled by its own susceptibility ``w_in[i]`` and the global ``input_gain``
+   (plain input scaling: how loud the news is, not how outrageous);
 3. is pulled back toward its own prior opinion at its personal stubbornness rate
    (Friedkin-Johnsen anchoring; this is what gives the reservoir fading memory);
 4. gets a little idiosyncratic noise, and is clipped back to [-1, 1].
@@ -25,7 +29,8 @@ class Params:
     k_follow: int = 10          # out-degree: how many accounts each agent sees
     eps: float = 0.3            # confidence bound
     mu: float = 0.5             # social learning rate
-    gain: float = 0.3           # outrage gain on the input
+    input_gain: float = 0.3     # input scaling: how hard the news hits informed agents
+    outrage: float = 0.0        # attention amplification of extreme opinions in the feed
     informed_frac: float = 0.3  # fraction of agents exposed to the input
     noise: float = 0.01         # idiosyncratic opinion noise
     anchor: tuple = (0.02, 0.2) # range of per-agent stubbornness (pull back toward prior opinion)
@@ -64,10 +69,13 @@ class OpinionReservoir:
         p, x = self.p, self.x
         close = np.abs(x[None, :] - x[:, None]) < p.eps
         M = (self.A & close) | np.eye(p.n_agents, dtype=bool)
+        if p.outrage:
+            # Shifted by -1 so the largest weight is exp(0); the shift cancels in the normalisation.
+            M = M * np.exp(p.outrage * (np.abs(x) - 1))[None, :]
         social_mean = (M @ x) / M.sum(1)
         x = (1 - p.mu) * x + p.mu * social_mean
         x = x + self.lam * (self.prior - x)
-        x = x + p.gain * self.w_in * u + p.noise * self.rng.standard_normal(p.n_agents)
+        x = x + p.input_gain * self.w_in * u + p.noise * self.rng.standard_normal(p.n_agents)
         self.x = np.clip(x, -1.0, 1.0)
         return self.x
 
