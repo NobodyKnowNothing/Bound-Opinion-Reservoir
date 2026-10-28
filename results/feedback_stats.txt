@@ -1,0 +1,32 @@
+Last 50 of 300 epochs, 20 paired seeds. Difference vs control: mean [95% bootstrap CI], d_z, sign-flip p.
+
+random rewiring (control)
+  memory capacity (probe)                    level   1.654
+  follow links within ε (active)             level   0.466
+  attention concentration (in-degree Gini)   level   0.170
+  top-10% accounts that are news-exposed     level   0.315
+  Gini change over the last 50 epochs: +0.001 (start 0.173)
+  top-10% by salience that are news-exposed: 0.95; salience mass on news-exposed agents: 0.63
+salience: show what the readout uses
+  memory capacity (probe)                    level   0.858   diff -0.797 [-0.884, -0.703]  d_z -3.78  p 1e-05
+  follow links within ε (active)             level   0.491   diff +0.025 [+0.005, +0.045]  d_z +0.53  p 0.029
+  attention concentration (in-degree Gini)   level   0.629   diff +0.459 [+0.450, +0.469]  d_z +20.33  p 5e-06
+  top-10% accounts that are news-exposed     level   0.962   diff +0.647 [+0.617, +0.677]  d_z +9.12  p 5e-06
+  Gini change over the last 50 epochs: +0.003 (start 0.173)
+  top-10% by salience that are news-exposed: 0.59; salience mass on news-exposed agents: 0.42
+agreement: show what you'll like
+  memory capacity (probe)                    level   1.601   diff -0.054 [-0.088, -0.016]  d_z -0.63  p 0.012
+  follow links within ε (active)             level   0.848   diff +0.382 [+0.360, +0.401]  d_z +8.09  p 5e-06
+  attention concentration (in-degree Gini)   level   0.173   diff +0.003 [-0.001, +0.007]  d_z +0.28  p 0.24
+  top-10% accounts that are news-exposed     level   0.255   diff -0.060 [-0.086, -0.032]  d_z -0.92  p 0.0011
+  Gini change over the last 50 epochs: +0.000 (start 0.173)
+  top-10% by salience that are news-exposed: 0.98; salience mass on news-exposed agents: 0.69
+salience + agreement
+  memory capacity (probe)                    level   1.450   diff -0.204 [-0.306, -0.112]  d_z -0.90  p 0.00021
+  follow links within ε (active)             level   0.713   diff +0.247 [+0.221, +0.274]  d_z +3.98  p 1e-05
+  attention concentration (in-degree Gini)   level   0.584   diff +0.413 [+0.404, +0.423]  d_z +18.37  p 1.5e-05
+  top-10% accounts that are news-exposed     level   0.988   diff +0.673 [+0.642, +0.702]  d_z +9.61  p 5e-06
+  Gini change over the last 50 epochs: +0.005 (start 0.173)
+  top-10% by salience that are news-exposed: 0.68; salience mass on news-exposed agents: 0.45
+
+Before any rewiring (epoch 0, all runs): news-exposed agents are 30% of the society but hold 60% of readout salience and 90% of the top-10% salient accounts.

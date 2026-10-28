@@ -65,35 +65,45 @@ def probe_mc(res, T=2000, seed=99):
     return memory_capacity(probe.run(u), u)[0]
 
 
-def epoch_metrics(res, sal):
-    x = res.x
-    close = np.abs(x[None, :] - x[:, None]) < res.p.eps
+def epoch_metrics(res, X, sal, every=10):
+    """Structural metrics averaged over the epoch's states (not a single end-of-epoch snapshot)."""
+    Xs = X[::every]
+    close = np.abs(Xs[:, None, :] - Xs[:, :, None]) < res.p.eps  # (time, i, j)
     indeg = res.A.sum(0)
     informed = res.w_in != 0
-    top = np.argsort(indeg)[-len(x) // 10:]
+    top = len(indeg) // 10
     return dict(
-        mc=probe_mc(res),
         # Fraction of follow links that actually transmit influence (within the confidence bound).
-        active_links=float((res.A & close).sum() / res.A.sum()),
+        active_links=float((res.A[None] & close).sum() / (len(Xs) * res.A.sum())),
         # Spread of opinions and how extreme they are.
-        spread=float(x.std()),
-        extremity=float(np.abs(x).mean()),
+        spread=float(Xs.std(1).mean()),
+        extremity=float(np.abs(Xs).mean()),
         # Attention concentration: Gini of follower counts.
         indegree_gini=gini(indeg),
         # Share of the top-10% most-followed accounts that are directly exposed to the news.
-        top_informed=float(informed[top].mean()),
+        top_informed=float(informed[np.argsort(indeg)[-top:]].mean()),
+        # The same share among the top-10% accounts by readout salience: where salience feedback should
+        # send attention if it simply follows the readout.
+        top_salient_informed=float(informed[np.argsort(sal)[-top:]].mean()),
+        salience_on_informed=float(sal[informed].sum() / sal.sum()),
         salience_gini=gini(sal),
     )
 
 
-def run_loop(params, rec: Recommender, epochs=40, epoch_len=500, signal_seed=7):
+def run_loop(params, rec: Recommender, epochs=40, epoch_len=500, probe_every=1, signal_seed=None):
+    """Alternate driving the society and rewiring it. MC is probed every ``probe_every`` epochs (NaN otherwise).
+
+    Each society seed gets its own news sequence, so runs don't share common shocks.
+    """
     res = OpinionReservoir(params)
-    rng = np.random.default_rng(signal_seed)
+    rng = np.random.default_rng(5000 + params.seed if signal_seed is None else signal_seed)
     history = []
-    for _ in range(epochs):
+    for e in range(epochs):
         u = rng.uniform(-1, 1, epoch_len)
         X = res.run(u)
         sal = rec.salience(X[50:], u[50:])
-        history.append(epoch_metrics(res, sal))
+        m = epoch_metrics(res, X, sal)
+        m["mc"] = probe_mc(res) if e % probe_every == 0 or e == epochs - 1 else np.nan
+        history.append(m)
         rec.rewire(res, sal)
     return {k: np.array([h[k] for h in history]) for k in history[0]}
