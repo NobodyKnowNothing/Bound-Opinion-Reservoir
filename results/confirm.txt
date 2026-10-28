@@ -1,0 +1,17 @@
+Pre-specified contrasts on 24 fresh seeds (100-123), T = 10000, paired by seed. Difference in memory capacity: mean [95% bootstrap CI], d_z, sign-flip p, Holm-adjusted p over the six contrasts, seeds where A > B.
+
+main readout (α 1e-4)
+  outrage 11.3 vs 0 (plain HK)    2.81 vs  2.36   diff +0.46 [+0.35, +0.56]  d_z +1.69  p 5e-06  Holm 3e-05  21/24
+  outrage 11.3 vs 256             2.81 vs  2.28   diff +0.53 [+0.43, +0.67]  d_z +1.75  p 5e-06  Holm 3e-05  24/24
+  input gain 0.4 vs 0.04          2.33 vs  1.28   diff +1.05 [+0.95, +1.14]  d_z +4.36  p 5e-06  Holm 3e-05  24/24
+  input gain 0.4 vs 10            2.33 vs  1.77   diff +0.56 [+0.45, +0.66]  d_z +2.13  p 5e-06  Holm 3e-05  23/24
+  ε 0.25 vs 2 (full mixing)       2.30 vs  2.23   diff +0.07 [-0.08, +0.21]  d_z +0.19  p 0.4  Holm 0.4  11/24
+  ε 2 vs 0.01 (closed-minded)     2.23 vs  1.82   diff +0.41 [+0.30, +0.52]  d_z +1.49  p 5e-06  Holm 3e-05  23/24
+
+validated ridge
+  outrage 11.3 vs 0 (plain HK)    2.73 vs  2.29   diff +0.44 [+0.32, +0.56]  d_z +1.45  p 5e-06  Holm 3e-05  20/24
+  outrage 11.3 vs 256             2.73 vs  2.15   diff +0.59 [+0.40, +0.80]  d_z +1.18  p 5e-06  Holm 3e-05  23/24
+  input gain 0.4 vs 0.04          2.27 vs  1.22   diff +1.04 [+0.93, +1.15]  d_z +3.78  p 5e-06  Holm 3e-05  24/24
+  input gain 0.4 vs 10            2.27 vs  1.74   diff +0.53 [+0.42, +0.63]  d_z +1.89  p 5e-06  Holm 3e-05  23/24
+  ε 0.25 vs 2 (full mixing)       2.31 vs  2.20   diff +0.11 [-0.02, +0.25]  d_z +0.33  p 0.1  Holm 0.1  13/24
+  ε 2 vs 0.01 (closed-minded)     2.20 vs  1.98   diff +0.22 [+0.10, +0.34]  d_z +0.73  p 0.002  Holm 0.005  18/24
