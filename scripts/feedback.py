@@ -50,6 +50,8 @@ PANELS = [
     ("active_links", "follow links within ε (active)"),
     ("indegree_gini", "attention concentration (in-degree Gini)"),
     ("top_informed", "top-10% accounts that are news-exposed"),
+    ("dimension", "effective dimension of the state (probe)"),
+    ("uninformed_corr", "how alike non-watchers are: mean |corr| (probe)"),
 ]
 EXTRA = ["top_salient_informed", "salience_on_informed", "extremity", "spread"]
 
@@ -107,12 +109,19 @@ def main():
     lines += ["", f"Before any rewiring (epoch 0, all runs): news-exposed agents are 30% of the society but hold "
               f"{e0['salience_on_informed']:.0%} of readout salience and {e0['top_salient_informed']:.0%} "
               f"of the top-10% salient accounts."]
+    lines += ["", f"Correlation with memory capacity across runs: within each policy ({len(SEEDS)} runs each), then pooled."]
+    for k in ("dimension", "uninformed_corr"):
+        within = [np.corrcoef(summary[name][k], summary[name]["mc"])[0, 1] for name in POLICIES]
+        pooled = np.corrcoef(np.concatenate([summary[name][k] for name in POLICIES]),
+                             np.concatenate([summary[name]["mc"] for name in POLICIES]))[0, 1]
+        lines.append(f"  {k:16s} " + " ".join(f"{r:+.2f}" for r in within) + f"   pooled {pooled:+.2f}")
     report = "\n".join(lines)
     print(report)
     if not quick:
         (ROOT / "results" / "feedback_stats.txt").write_text(report, encoding="utf-8")
 
-    fig, axes = plt.subplots(1, 5, figsize=(22, 4.2), gridspec_kw=dict(width_ratios=[1, 1, 1, 1, 0.8]))
+    fig, grid = plt.subplots(2, 4, figsize=(20, 8.4))
+    axes = grid.ravel()
     t = np.arange(EPOCHS)
     for ax, (key, label) in zip(axes, PANELS):
         for color, name in zip(COLORS, POLICIES):
@@ -129,11 +138,11 @@ def main():
             ax.spines[side].set_visible(False)
         ax.grid(alpha=0.25, lw=0.6)
     axes[3].axhline(e0["top_salient_informed"], color=COLORS[1], ls="--", lw=1)
-    axes[3].text(EPOCHS * 0.3, e0["top_salient_informed"] - 0.06, "news-exposed share of top-salient accounts, epoch 0",
+    axes[3].text(EPOCHS * 0.05, e0["top_salient_informed"] - 0.06, "news-exposed share of top-salient accounts, epoch 0",
                  color=COLORS[1], fontsize=7.5)
     axes[0].legend(fontsize=7.5, frameon=False, loc="lower left")
 
-    ax = axes[4]
+    ax = axes[6]
     names = list(POLICIES)[1:]
     for y, (name, color) in enumerate(zip(names, COLORS[1:])):
         m, lo, hi, dz, p = stats[(name, "mc")]
@@ -149,6 +158,22 @@ def main():
         ax.spines[side].set_visible(False)
     xmin, xmax = ax.get_xlim()
     ax.set_xlim(xmin, xmax + 0.6 * (xmax - xmin))
+
+    # Run level: does memory track how alike the non-watchers have become?
+    ax = axes[7]
+    xs, ys = [], []
+    for color, name in zip(COLORS, POLICIES):
+        x, y = summary[name]["uninformed_corr"], summary[name]["mc"]
+        ax.scatter(x, y, s=14, color=color, alpha=0.8)
+        xs.append(x), ys.append(y)
+    r = np.corrcoef(np.concatenate(xs), np.concatenate(ys))[0, 1]
+    ax.set_xlabel("non-watchers' mean |corr|")
+    ax.set_ylabel("memory capacity")
+    ax.set_title(f"Each run, last {WINDOW} epochs (r = {r:.2f})", loc="left", fontsize=10)
+    for side in ("top", "right"):
+        ax.spines[side].set_visible(False)
+    ax.grid(alpha=0.25, lw=0.6)
+    print(f"run-level correlation of MC with non-watchers' |corr|: {r:.2f}")
 
     fig.suptitle(f"Feeding the readout back into who sees whom ({len(SEEDS)} paired seeds; "
                  "shaded: 95% CI of the mean)", x=0.01, ha="left", fontsize=13)

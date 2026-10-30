@@ -20,7 +20,7 @@ from dataclasses import dataclass
 import numpy as np
 
 from .model import OpinionReservoir
-from .readout import memory_capacity, ridge_fit
+from .readout import memory_capacity, participation_ratio, ridge_fit
 
 
 @dataclass
@@ -57,12 +57,26 @@ def gini(v):
     return float((2 * np.arange(1, n + 1) - n - 1) @ v / (n * v.sum() + 1e-12))
 
 
-def probe_mc(res, T=2000, seed=99):
-    """Memory capacity of the current society, measured on a frozen copy with a fresh probe signal."""
-    probe = copy.deepcopy(res)
-    probe.rng = np.random.default_rng(seed)
+def mean_abs_corr(X):
+    """Mean |correlation| between distinct columns of X (agents' opinion time series)."""
+    C = np.corrcoef(X[:, X.std(0) > 1e-9], rowvar=False)
+    off = ~np.eye(len(C), dtype=bool)
+    return float(np.abs(C[off]).mean())
+
+
+def probe(res, T=2000, seed=99, washout=200):
+    """Probe a frozen copy of the society with a fresh signal: memory capacity, effective dimension
+    of the states, and how alike the agents who don't watch the news have become."""
+    frozen = copy.deepcopy(res)
+    frozen.rng = np.random.default_rng(seed)
     u = np.random.default_rng(seed).uniform(-1, 1, T)
-    return memory_capacity(probe.run(u), u)[0]
+    X = frozen.run(u)
+    informed = res.w_in != 0
+    return dict(
+        mc=memory_capacity(X, u, washout=washout)[0],
+        dimension=participation_ratio(X[washout:]),
+        uninformed_corr=mean_abs_corr(X[washout:, ~informed]),
+    )
 
 
 def epoch_metrics(res, X, sal, every=10):
@@ -103,7 +117,8 @@ def run_loop(params, rec: Recommender, epochs=40, epoch_len=500, probe_every=1, 
         X = res.run(u)
         sal = rec.salience(X[50:], u[50:])
         m = epoch_metrics(res, X, sal)
-        m["mc"] = probe_mc(res) if e % probe_every == 0 or e == epochs - 1 else np.nan
+        probed = e % probe_every == 0 or e == epochs - 1
+        m.update(probe(res) if probed else dict(mc=np.nan, dimension=np.nan, uninformed_corr=np.nan))
         history.append(m)
         rec.rewire(res, sal)
     return {k: np.array([h[k] for h in history]) for k in history[0]}

@@ -24,7 +24,8 @@ happens when a recommender uses that readout to decide who sees whom?
 - **Feeding the readout back into who sees whom halves memory.** A recommender that
   shows people the accounts its readout relies on turns news-exposed agents into hubs
   (largely expected, see below) and cuts memory capacity from 1.65 to 0.86 — below
-  even a closed-minded society.
+  even a closed-minded society. The obvious explanation, that the state collapses into
+  copies of a few hubs, was tested and is wrong: effective dimension rises as memory falls.
 
 ## The model ([bor/model.py](bor/model.py))
 
@@ -155,12 +156,12 @@ last 50 epochs ([results/feedback_stats.txt](results/feedback_stats.txt)).
 
 ![feedback](figures/feedback.png)
 
-| policy (last 50 of 300 epochs) | memory capacity | Δ vs control [95% CI], d_z | active links | in-degree Gini | top-10% news-exposed |
-|---|---|---|---|---|---|
-| random rewiring (control) | 1.65 | — | 0.47 | 0.17 | 0.32 |
-| salience (β_s = 8) | 0.86 | −0.80 [−0.88, −0.70], −3.8 | 0.49 | 0.63 | 0.96 |
-| agreement (β_a = 8) | 1.60 | −0.05 [−0.09, −0.02], −0.6 | 0.85 | 0.17 | 0.26 |
-| salience + agreement | 1.45 | −0.20 [−0.31, −0.11], −0.9 | 0.71 | 0.58 | 0.99 |
+| policy (last 50 of 300 epochs) | memory capacity | Δ vs control [95% CI], d_z | active links | in-degree Gini | top-10% news-exposed | effective dimension | non-watchers' mean \|corr\| |
+|---|---|---|---|---|---|---|---|
+| random rewiring (control) | 1.65 | — | 0.47 | 0.17 | 0.32 | 2.2 | 0.20 |
+| salience (β_s = 8) | 0.86 | −0.80 [−0.88, −0.70], −3.8 | 0.49 | 0.63 | 0.96 | 3.9 | 0.44 |
+| agreement (β_a = 8) | 1.60 | −0.05 [−0.09, −0.02], −0.6 | 0.85 | 0.17 | 0.26 | 1.7 | 0.21 |
+| salience + agreement | 1.45 | −0.20 [−0.31, −0.11], −0.9 | 0.71 | 0.58 | 0.99 | 2.3 | 0.66 |
 
 Sign-flip p-values: salience 10⁻⁵, agreement 0.012, both 2·10⁻⁴.
 
@@ -174,10 +175,22 @@ most-followed accounts news-exposed.
 **What is not built in:**
 
 - **The salience recommender halves the society's memory** (1.65 → 0.86, paired d_z −3.8).
-  That is below a closed-minded society (1.7). The likely route: once everyone follows the
-  same few news-exposed hubs, the 70% who don't watch the news all average the same
-  signals, so their states become copies of each other. This is a reading; effective
-  dimension wasn't tracked in this loop.
+  That is below a closed-minded society (1.7).
+- **The memory loss is not the state collapsing.** The first draft's explanation was that
+  everyone following the same hubs turns the 70% who don't watch the news into copies of
+  each other. Measured on the same probes, that fails three ways:
+  - Effective dimension *rises* under salience, 2.2 → 3.9 (+1.74 [+1.41, +2.06]), while
+    memory falls. There are more independent directions in the state, not fewer.
+  - Non-watchers do grow more alike (mean |corr| 0.20 → 0.44), but the combined policy
+    goes further (0.66) and keeps most of its memory (1.45).
+  - Within every policy, runs with more alike non-watchers remember *more*, not less
+    (r = +0.54 to +0.81, 20 runs each). Pooled across policies the correlation is −0.17,
+    so the last panel's r mostly reflects differences between policies.
+
+  One reading of the third point is that shared movement among non-watchers is the news
+  reaching them. Why memory falls remains open. The extra dimensions evidently carry
+  little about past news, but what they do carry wasn't measured. These correlations are
+  exploratory, read off the same runs, and none of them establishes a cause.
 - **Attention inequality settles high.** In-degree Gini 0.17 → 0.63, flat over the last 50
   epochs.
 - **The agreement recommender widens the effective confidence bound** without changing ε:
@@ -219,3 +232,5 @@ python scripts/feedback.py     # ~20 min on 12 cores; figures/feedback.png, resu
 6. Memory capacity was checked against a linear reservoir (reaches the N ceiling), tanh
    ESNs, a chance floor, and eight readout pipelines. The ε curve's low end turned out to
    be pipeline-sensitive.
+7. The feedback loop now tracks effective dimension and how alike non-watchers are. That
+   refuted the earlier "non-watchers become copies" explanation of the memory loss.
