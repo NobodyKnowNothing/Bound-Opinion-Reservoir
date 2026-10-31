@@ -26,7 +26,8 @@ happens when a recommender uses that readout to decide who sees whom?
   (largely expected, see below) and cuts memory capacity from 2.24 to 1.85 on long
   replays with validated ridge. The loop's short probes showed 1.65 → 0.86, which
   overstated the loss. The state doesn't collapse into copies of a few hubs: effective
-  dimension rises as memory falls, and the loss sits in the non-watchers.
+  dimension rises as memory falls, and on 24 fresh seeds the loss is concentrated in the
+  non-watchers.
 
 ## The model ([bor/model.py](bor/model.py))
 
@@ -237,14 +238,31 @@ slow noise for signal.
 - **Fast-forgetting hubs: rejected, wrong sign.** Hubs are *less* stubborn than the
   control's (0.090 vs 0.112), so they forget more slowly. They are more news-sensitive
   (|w| 0.72 vs 0.48).
-- **The non-watchers lose it: supported.** A readout on non-watchers alone drops 2.07 → 1.40
-  on long replays (−0.67 [−0.87, −0.47]). One on news-exposed agents alone doesn't
-  significantly change (−0.14 [−0.39, +0.10]). So news-exposed agents still hold what they
-  held, and less of it reaches everyone else.
+- **The non-watchers lose most of it: supported and confirmed.** See below.
+
+**Confirmation on fresh seeds** ([scripts/confirm_nonwatchers.py](scripts/confirm_nonwatchers.py),
+[results/confirm_nonwatchers.txt](results/confirm_nonwatchers.txt)). The tests and the pass
+rule were pushed before the run. Seeds 200–223 had never been through the loop, and each
+got its own news and replay signal. Salience minus control, T = 10 000:
+
+| test | fixed ridge | validated ridge |
+|---|---|---|
+| whole-society readout (reported, not in the rule) | −0.67 [−0.86, −0.48] | −0.40 [−0.51, −0.30] |
+| non-watcher readout | −0.59 [−0.79, −0.40] | −0.42 [−0.59, −0.27] |
+| non-watcher loss beyond news-exposed loss | −0.43 [−0.55, −0.30] | −0.25 [−0.37, −0.14] |
+| news-exposed readout (descriptive) | −0.16 [−0.30, −0.03] | −0.17 [−0.28, −0.06] |
+
+Both tests in the rule pass under both pipelines (Holm p ≤ 0.0004). The whole-society loss
+reproduces too: 2.32 → 1.92 validated, about 17%, against 18% on the discovery seeds.
+
+One thing changed from the discovery run. There the news-exposed readout's drop wasn't
+significant (−0.14 [−0.39, +0.10]); here it is small but real. So the loss is concentrated
+in the non-watchers, not confined to them. News-exposed agents keep nearly all of their
+memory, and less of it reaches everyone else.
 
 What this doesn't settle is the mechanism by which less reaches them. Non-watchers grow
-more alike in both their news-locked part (|corr| 0.32 → 0.47) and their noise (0.07 → 0.17).
-These seeds also produced the idea, so the non-watcher result still needs fresh seeds.
+more alike in both their news-locked part (|corr| 0.32 → 0.47) and their noise (0.07 → 0.17),
+but neither has been shown to cause the loss.
 
 The first draft reported a sharp final-epoch drop in every line. That was a shared-input
 artifact: all runs used one news sequence and active links was an end-of-epoch snapshot,
@@ -264,6 +282,7 @@ python scripts/confirm.py      # fresh-seed contrasts; results/confirm.txt
 python scripts/sanity_mc.py    # reference reservoirs; figures/mc_sanity.png
 python scripts/feedback.py     # ~20 min on 12 cores; figures/feedback.png, results/feedback_stats.txt
 python scripts/dimension.py    # replays end-of-loop societies; figures/dimension.png, results/dimension_stats.txt
+python scripts/confirm_nonwatchers.py  # fresh-seed confirmation; results/confirm_nonwatchers.txt
 ```
 
 ## Changes since the first write-up
