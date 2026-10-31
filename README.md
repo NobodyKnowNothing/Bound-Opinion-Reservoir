@@ -25,9 +25,12 @@ happens when a recommender uses that readout to decide who sees whom?
   shows people the accounts its readout relies on turns news-exposed agents into hubs
   (largely expected, see below) and cuts memory capacity from 2.24 to 1.85 on long
   replays with validated ridge. The loop's short probes showed 1.65 → 0.86, which
-  overstated the loss. The state doesn't collapse into copies of a few hubs: effective
-  dimension rises as memory falls, and on 24 fresh seeds the loss is concentrated in the
-  non-watchers.
+  overstated the loss. On 24 fresh seeds the loss is concentrated in the non-watchers.
+- **The confidence bound causes that loss, not the hubs.** With a gate that ignores
+  opinions, the salience network remembers *more* than random rewiring (3.34 vs 2.69 with
+  a frozen gate). Under the live bound, links to hubs keep crossing ε, and the switching
+  interferes with what the readout can decode. All eleven tests fixed in advance pass on
+  24 unused seeds.
 
 ## The model ([bor/model.py](bor/model.py))
 
@@ -260,9 +263,70 @@ significant (−0.14 [−0.39, +0.10]); here it is small but real. So the loss i
 in the non-watchers, not confined to them. News-exposed agents keep nearly all of their
 memory, and less of it reaches everyone else.
 
-What this doesn't settle is the mechanism by which less reaches them. Non-watchers grow
-more alike in both their news-locked part (|corr| 0.32 → 0.47) and their noise (0.07 → 0.17),
-but neither has been shown to cause the loss.
+### What causes the loss ([scripts/mechanism.py](scripts/mechanism.py), [scripts/confirm_mechanism.py](scripts/confirm_mechanism.py))
+
+![mechanism](figures/mechanism.png)
+
+Agents keep their traits across policies, so frozen societies can be cut up and replayed.
+The explanation was found by surgery on seeds 0–19. Eleven tests and the pass rule were
+then pushed before seeds 300–323 were scored, and all eleven pass (Holm p ≈ 3·10⁻⁵;
+[results/confirm_mechanism.txt](results/confirm_mechanism.txt)). Numbers below are from
+the fresh seeds, with validated ridge unless stated.
+
+**The answer.** Salience feedback builds a better network and the confidence bound
+breaks it. Followers' links to hubs swing across ε, so the society's connections keep
+switching. To a linear readout that switching is slow interference, and it costs more
+than the better network gains.
+
+| gate, same open rate per link | control | salience | salience − control |
+|---|---|---|---|
+| frozen | 2.69 | 3.34 | +0.65 |
+| random flicker | 2.08 | 2.44 | +0.36 |
+| each link keeps its own persistence | 1.86 | 2.09 | +0.23 |
+| a follower's links also move together | 2.06 | 1.77 | −0.29 |
+| also coupled to the news (the live gate) | 2.28 | 1.88 | −0.40 |
+
+- **Gating, not rate, reverses the sign.** Salience wins under every gate that ignores
+  opinions. The largest single swing, −0.52, comes when a follower's links move together.
+- **It takes both sides moving.** Holding followers at their mean opinion inside the gate
+  turns the −0.40 into +0.18; doing it for followed accounts gives +0.32. The gate's
+  dependence on live opinion distance is what does the damage.
+- **Slow gating costs more than fast gating.** Keeping the live frames but scrambling
+  their order, salience goes from 1.87 in 200-step blocks to 2.32 frame by frame.
+  Control doesn't move (2.08, 2.09). Opinions low-pass their input, so fast switching
+  averages out and slow switching gets through.
+- **The forcing is large.** The live gate's forcing on non-watchers has about 15 times
+  the control's variance (0.021 vs 0.0014). 57% of their links are undecided (open
+  10–90% of the time), against 10%, and follower-to-followed distance swings 0.20 against
+  0.06, large compared with ε = 0.3.
+- **This is why removing external noise didn't help.** The interference comes from the
+  gate, not from outside. It is mostly not noise in the strict sense: noise-free twins
+  started 0.001 apart converged in 20 of 24 salience societies (18 of 20 on seeds 0–19),
+  so the switching is usually a deterministic function of the news that a linear readout
+  can't untangle. The other 4 stayed apart, which no control or combined society did.
+  This check was descriptive, not one of the eleven tests.
+- **Why agreement fixes it.** With every degree held exactly fixed, moving salience
+  followers closer to the accounts they follow gains +0.29. Moving the combined policy's
+  followers apart loses −0.39. The combined policy keeps its hubs (Gini 0.58) and has a
+  third of salience's forcing (0.007). Link distances and undecided shares are descriptive.
+
+**Rejected along the way, all on seeds 0–19:**
+
+- *Hubs as such.* The combined policy has nearly the same hubs and no loss.
+- *The news shutting links.* Replaying the gate recorded under different news doesn't
+  restore memory (1.75).
+- *Hubs flipping their followers together.* Keeping those flips aligned (2.00) is no
+  worse than removing them (2.02).
+- *Hub traits.* Shuffling susceptibility, stubbornness or priors recovers little (+0.15,
+  +0.11, +0.03).
+- *Followers flipping between two camps.* Non-Gaussian opinion statistics, the marker
+  for this, didn't fall when the feedback was cut.
+
+**Limits.** Surgery shows what the loss depends on in frozen societies, at one size,
+topology and rate. Non-watchers are hit hardest, but why they rather than news-exposed
+agents isn't fully resolved: 69% of their links point at news-exposed accounts, and
+holding the gate fixed for them alone is enough to close the gap on seeds 0–19. Gate forcing tracks
+memory across rewirings at ε = 0.3, but it is one summary and not the whole mechanism.
 
 The first draft reported a sharp final-epoch drop in every line. That was a shared-input
 artifact: all runs used one news sequence and active links was an end-of-epoch snapshot,
@@ -283,6 +347,10 @@ python scripts/sanity_mc.py    # reference reservoirs; figures/mc_sanity.png
 python scripts/feedback.py     # ~20 min on 12 cores; figures/feedback.png, results/feedback_stats.txt
 python scripts/dimension.py    # replays end-of-loop societies; figures/dimension.png, results/dimension_stats.txt
 python scripts/confirm_nonwatchers.py  # fresh-seed confirmation; results/confirm_nonwatchers.txt
+python scripts/societies.py 0 20       # caches end-of-loop societies; results/societies_0_20.npz
+python scripts/mechanism.py results/societies_0_20.npz --round5   # exploratory surgery; rounds 1-5
+python scripts/societies.py 300 324
+python scripts/confirm_mechanism.py results/societies_300_324.npz # figures/mechanism.png, results/confirm_mechanism.txt
 ```
 
 ## Changes since the first write-up
@@ -303,3 +371,5 @@ python scripts/confirm_nonwatchers.py  # fresh-seed confirmation; results/confir
    refuted the earlier "non-watchers become copies" explanation of the memory loss.
 8. "Halves memory" is withdrawn. Long replays show the short probes overstated the loss
    (−0.80 → −0.40 with validated ridge) and invented the combined policy's cost.
+9. The cause of the loss was tested by surgery and confirmed on fresh seeds: it comes from
+   the live confidence gate on a network that is otherwise better, not from the hubs.

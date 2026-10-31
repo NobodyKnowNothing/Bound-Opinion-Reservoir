@@ -25,7 +25,8 @@ CONFIRMED only if all eleven have the stated sign with Holm p < 0.05 over the el
 failure is reported as that claim failing, not explained away. Fixed-ridge versions, non-watcher
 readouts and link distances are descriptive only.
 
-    python scripts/confirm_mechanism.py results/societies_300_324.npz   # results/confirm_mechanism.txt
+    python scripts/confirm_mechanism.py results/societies_300_324.npz
+    # writes results/confirm_mechanism.txt and figures/mechanism.png
 """
 
 import os
@@ -37,11 +38,16 @@ import sys  # noqa: E402
 from concurrent.futures import ProcessPoolExecutor  # noqa: E402
 from pathlib import Path  # noqa: E402
 
+import matplotlib  # noqa: E402
 import numpy as np  # noqa: E402
+
+matplotlib.use("Agg")
+import matplotlib.pyplot as plt  # noqa: E402
 
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
 
+from feedback import COLORS  # noqa: E402
 from mechanism import (BOTH, CONTROL, SALIENCE, block_shuffle, forcing, record_gate, score, shifted, surgery,  # noqa: E402
                        swap_links, warm)
 from societies import load  # noqa: E402
@@ -59,6 +65,58 @@ def links(res, seed):
     d = np.abs(X[:, i] - X[:, j])
     return dict(link_distance=d.mean(), link_swing=d.std(0).mean(),
                 link_margin=np.abs(d.mean(0) - res.p.eps).mean())
+
+
+def figure(col):
+    def ci(v):
+        return 1.96 * v.std(ddof=1) / np.sqrt(len(v))
+
+    def gap(gate):
+        suffix = f" {gate}" if gate else ""
+        return col(f"salience{suffix}") - col(f"control{suffix}")
+
+    fig, axes = plt.subplots(1, 3, figsize=(16, 4.8))
+    ax = axes[0]
+    steps = [("static", "frozen"), ("flicker", "random\nflicker"), ("by link", "+ link\npersistence"),
+             ("together", "+ links move\ntogether"), (None, "+ news\n(live gate)")]
+    for name, color in (("control", COLORS[0]), ("salience", COLORS[1])):
+        vals = [col(f"{name} {g}" if g else name) for g, _ in steps]
+        ax.errorbar(range(len(steps)), [v.mean() for v in vals], yerr=[ci(v) for v in vals], fmt="o-", color=color,
+                    capsize=3, lw=2, label=name)
+    ax.set_xticks(range(len(steps)), [label for _, label in steps], fontsize=8)
+    ax.set_ylabel("memory capacity")
+    ax.set_title("Same open rates, gate rebuilt one property at a time", loc="left", fontsize=10)
+    ax.legend(frameon=False, fontsize=9)
+
+    ax = axes[1]
+    rows = [("live gate", gap(None)), ("followers fixed\nat mean opinion", gap("followers anchored")),
+            ("followed accounts fixed\nat mean opinion", gap("followed anchored")), ("frozen gate", gap("static"))]
+    for y, (_, v) in enumerate(rows):
+        ax.errorbar(v.mean(), y, xerr=ci(v), fmt="o", color=COLORS[1], capsize=3)
+    ax.axvline(0, color=COLORS[0], lw=1)
+    ax.set_yticks(range(len(rows)), [label for label, _ in rows], fontsize=8)
+    ax.invert_yaxis()
+    ax.set_xlabel("memory, salience minus control")
+    ax.set_title("The loss needs the live gate", loc="left", fontsize=10)
+
+    ax = axes[2]
+    points = [("control", "control", 8, 6), ("both", "salience + agreement", 8, 6),
+              ("salience matched", "salience, followers matched", 8, -11), ("both unmatched", "combined, followers unmatched", -150, -14),
+              ("salience", "salience", -46, 6)]
+    for name, label, dx, dy in points:
+        f, m = col(name, "f_var"), col(name)
+        ax.errorbar(f.mean(), m.mean(), xerr=ci(f), yerr=ci(m), fmt="o", color=COLORS[1 if "salience" in name else 0 if name == "control" else 3], capsize=2)
+        ax.annotate(label, (f.mean(), m.mean()), xytext=(dx, dy), textcoords="offset points", fontsize=8)
+    ax.set_xlabel("gate forcing on non-watchers (variance)")
+    ax.set_ylabel("memory capacity")
+    ax.set_title("More switching forcing, less memory", loc="left", fontsize=10)
+    for ax in axes:
+        for side in ("top", "right"):
+            ax.spines[side].set_visible(False)
+        ax.grid(alpha=0.25, lw=0.6)
+    fig.suptitle("What causes the memory loss (24 fresh seeds; bars: 95% CI of the mean)", x=0.01, ha="left", fontsize=13)
+    fig.tight_layout()
+    fig.savefig(ROOT / "figures" / "mechanism.png", dpi=150)
 
 
 def job(args):
@@ -90,6 +148,10 @@ def job(args):
 
 def main():
     sys.stdout.reconfigure(encoding="utf-8")
+    if "--replot" in sys.argv:
+        saved = np.load(ROOT / "results" / "confirm_mechanism.npz")
+        figure(lambda name, key="whole": saved[f"{name}|{key}"])
+        return
     socs = load(sys.argv[1])
     seeds = sorted({s for _, s in socs})
     with ProcessPoolExecutor() as pool:
@@ -146,6 +208,9 @@ def main():
     report = "\n".join(lines)
     print(report)
     (ROOT / "results" / "confirm_mechanism.txt").write_text(report, encoding="utf-8")
+    np.savez(ROOT / "results" / "confirm_mechanism.npz", seeds=seeds,
+             **{f"{name}|{k}": col(name, k) for name in results[seeds[0]] for k in results[seeds[0]][name]})
+    figure(col)
 
 
 if __name__ == "__main__":
