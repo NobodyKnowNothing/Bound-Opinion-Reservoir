@@ -21,11 +21,12 @@ happens when a recommender uses that readout to decide who sees whom?
   outrage 256) on 24 fresh seeds. This is the candidate central figure.
 - **The society is a poor memory.** Through the same pipeline, an echo state network
   matched to it remembers about 15 steps of news; the society remembers 2–3.
-- **Feeding the readout back into who sees whom halves memory.** A recommender that
+- **Feeding the readout back into who sees whom costs some memory.** A recommender that
   shows people the accounts its readout relies on turns news-exposed agents into hubs
-  (largely expected, see below) and cuts memory capacity from 1.65 to 0.86 — below
-  even a closed-minded society. The obvious explanation, that the state collapses into
-  copies of a few hubs, was tested and is wrong: effective dimension rises as memory falls.
+  (largely expected, see below) and cuts memory capacity from 2.24 to 1.85 on long
+  replays with validated ridge. The loop's short probes showed 1.65 → 0.86, which
+  overstated the loss. The state doesn't collapse into copies of a few hubs: effective
+  dimension rises as memory falls, and the loss sits in the non-watchers.
 
 ## The model ([bor/model.py](bor/model.py))
 
@@ -163,7 +164,9 @@ last 50 epochs ([results/feedback_stats.txt](results/feedback_stats.txt)).
 | agreement (β_a = 8) | 1.60 | −0.05 [−0.09, −0.02], −0.6 | 0.85 | 0.17 | 0.26 | 1.7 | 0.21 |
 | salience + agreement | 1.45 | −0.20 [−0.31, −0.11], −0.9 | 0.71 | 0.58 | 0.99 | 2.3 | 0.66 |
 
-Sign-flip p-values: salience 10⁻⁵, agreement 0.012, both 2·10⁻⁴.
+Sign-flip p-values: salience 10⁻⁵, agreement 0.012, both 2·10⁻⁴. These memory numbers
+come from the loop's short probes (T = 2000, so 1260 training steps for 200 weights) and
+are biased low; the long replays below are the ones to quote.
 
 **What is built in.** Before any rewiring, news-exposed agents are 30% of the society but
 hold 60% of readout salience and 90% of the top-10% salient slots. A recommender that
@@ -174,8 +177,8 @@ most-followed accounts news-exposed.
 
 **What is not built in:**
 
-- **The salience recommender halves the society's memory** (1.65 → 0.86, paired d_z −3.8).
-  That is below a closed-minded society (1.7).
+- **The salience recommender costs memory**, though less than the short probes suggest
+  (see the replay section below).
 - **The memory loss is not the state collapsing.** The first draft's explanation was that
   everyone following the same hubs turns the 70% who don't watch the news into copies of
   each other. Measured on the same probes, that fails three ways:
@@ -187,17 +190,61 @@ most-followed accounts news-exposed.
     (r = +0.54 to +0.81, 20 runs each). Pooled across policies the correlation is −0.17,
     so the last panel's r mostly reflects differences between policies.
 
-  One reading of the third point is that shared movement among non-watchers is the news
-  reaching them. Why memory falls remains open. The extra dimensions evidently carry
-  little about past news, but what they do carry wasn't measured. These correlations are
-  exploratory, read off the same runs, and none of them establishes a cause.
+  These correlations are exploratory, read off the same runs, and establish no cause.
 - **Attention inequality settles high.** In-degree Gini 0.17 → 0.63, flat over the last 50
   epochs.
 - **The agreement recommender widens the effective confidence bound** without changing ε:
   85% of follow links now transmit influence, against 47% under random rewiring. Its memory
-  cost is small but real (−0.05).
-- **Combined**, agreement softens the salience effect (−0.20 instead of −0.80) while
+  cost is small and depends on the readout (table below).
+- **Combined**, agreement removes the salience policy's memory cost on long replays while
   keeping most of its hub formation (Gini 0.58).
+
+### Replaying the end-of-loop societies ([scripts/dimension.py](scripts/dimension.py))
+
+![replay](figures/dimension.png)
+
+Each society is frozen after epoch 300 and replayed, 20 paired seeds
+([results/dimension_stats.txt](results/dimension_stats.txt)). The rerun reproduces every
+saved final probe exactly.
+
+| policy | short probe (T 2000) | long replay (T 10 000) | long replay, validated ridge | Δ validated vs control [95% CI] |
+|---|---|---|---|---|
+| random rewiring (control) | 1.68 | 2.21 | 2.24 | — |
+| salience | 0.88 | 1.58 | 1.85 | −0.40 [−0.53, −0.26] |
+| agreement | 1.60 | 2.15 | 2.08 | −0.17 [−0.26, −0.06] |
+| salience + agreement | 1.50 | 2.30 | 2.33 | +0.09 [−0.01, +0.19] |
+
+**How big the loss is.** The check fixed in advance required a validated CI that excludes
+zero and at least half of the short-probe loss surviving. The CI passes; 49.6% survives,
+so it narrowly fails. Memory is lower in 17 of 20 seeds, but the loss is about 18%, not a halving.
+On these readouts it also no longer falls clearly below a closed-minded society (1.7 at
+fixed ridge, 1.9 validated). The combined policy's −0.20 was entirely a short-probe effect.
+
+**Why the probe mattered.** The readout fits the salience societies less well out of
+sample: at fixed ridge its train-to-test gap is 1.35 against 0.98 for control. Under
+salience the variance not locked to the news doubles (12% → 28%), and three quarters of
+that noise survives 50-step averaging. A plausible reading is that a short fit mistakes
+slow noise for signal.
+
+**Where the extra dimensions come from.** Both parts grow: noise 10.8 → 22.8, news-locked
+1.9 → 2.8. Neither buys memory.
+
+**Three routes, with rules fixed before the run (salience vs control):**
+
+- **Noise drowns the news: rejected.** At T = 4000, removing noise recovers none of the
+  loss. On long replays the gap widens from −0.63 to −0.90 at fixed ridge, because noise
+  removal helps the control more (2.21 → 2.70) than salience (1.58 → 1.80).
+- **Fast-forgetting hubs: rejected, wrong sign.** Hubs are *less* stubborn than the
+  control's (0.090 vs 0.112), so they forget more slowly. They are more news-sensitive
+  (|w| 0.72 vs 0.48).
+- **The non-watchers lose it: supported.** A readout on non-watchers alone drops 2.07 → 1.40
+  on long replays (−0.67 [−0.87, −0.47]). One on news-exposed agents alone doesn't
+  significantly change (−0.14 [−0.39, +0.10]). So news-exposed agents still hold what they
+  held, and less of it reaches everyone else.
+
+What this doesn't settle is the mechanism by which less reaches them. Non-watchers grow
+more alike in both their news-locked part (|corr| 0.32 → 0.47) and their noise (0.07 → 0.17).
+These seeds also produced the idea, so the non-watcher result still needs fresh seeds.
 
 The first draft reported a sharp final-epoch drop in every line. That was a shared-input
 artifact: all runs used one news sequence and active links was an end-of-epoch snapshot,
@@ -216,6 +263,7 @@ python scripts/plot_sweep.py   # figures/sweeps.png, pipeline_robustness.png, na
 python scripts/confirm.py      # fresh-seed contrasts; results/confirm.txt
 python scripts/sanity_mc.py    # reference reservoirs; figures/mc_sanity.png
 python scripts/feedback.py     # ~20 min on 12 cores; figures/feedback.png, results/feedback_stats.txt
+python scripts/dimension.py    # replays end-of-loop societies; figures/dimension.png, results/dimension_stats.txt
 ```
 
 ## Changes since the first write-up
@@ -234,3 +282,5 @@ python scripts/feedback.py     # ~20 min on 12 cores; figures/feedback.png, resu
    be pipeline-sensitive.
 7. The feedback loop now tracks effective dimension and how alike non-watchers are. That
    refuted the earlier "non-watchers become copies" explanation of the memory loss.
+8. "Halves memory" is withdrawn. Long replays show the short probes overstated the loss
+   (−0.80 → −0.40 with validated ridge) and invented the combined policy's cost.

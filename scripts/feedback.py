@@ -44,7 +44,7 @@ POLICIES = {
     "agreement: show what you'll like": Recommender(beta_agree=8),
     "salience + agreement": Recommender(beta_salience=8, beta_agree=8),
 }
-COLORS = ["#6e7781", "#c2410c", "#2563eb", "#7c3aed"]
+COLORS = ["#6e7781", "#c2410c", "#2563eb", "#d4a017"]
 PANELS = [
     ("mc", "memory capacity (probe)"),
     ("active_links", "follow links within ε (active)"),

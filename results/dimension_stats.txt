@@ -1,0 +1,97 @@
+End-of-loop societies replayed: 8 noise replicas, 4000 steps, paired seeds.
+Difference vs control: mean [95% bootstrap CI], d_z, sign-flip p.
+
+control
+  memory capacity, loop's probe (T 2000)     level   1.682
+  memory capacity, long replay               level   2.208
+  memory capacity, long replay, validated    level   2.241
+  same fit scored on its training block      level   3.187
+  long replay, news-exposed readout only     level   1.808
+  long replay, non-watcher readout only      level   2.071
+  long replay, noise removed                 level   2.699
+  memory capacity, T 4000                    level   1.776
+  T 4000, noise removed                      level   2.198
+  T 4000, news-exposed readout only          level   1.389
+  T 4000, non-watcher readout only           level   1.900
+  state variance locked to the news          level   0.876
+  same, non-watchers only                    level   0.541
+  effective dimension                        level   2.410
+  effective dimension, news-locked part      level   1.900
+  effective dimension, noise part            level  10.783
+  noise variance surviving 50-step means     level   0.650
+  non-watchers' mean |corr|, news-locked     level   0.324
+  non-watchers' mean |corr|, noise           level   0.065
+  top-10% accounts: stubbornness             level   0.112
+  top-10% news-exposed: |susceptibility|     level   0.484
+salience
+  memory capacity, loop's probe (T 2000)     level   0.882   diff -0.800 [-0.928, -0.661]  d_z -2.59  p 1e-05
+  memory capacity, long replay               level   1.577   diff -0.631 [-0.890, -0.389]  d_z -1.08  p 6e-05
+  memory capacity, long replay, validated    level   1.845   diff -0.397 [-0.534, -0.261]  d_z -1.24  p 2e-05
+  same fit scored on its training block      level   2.931   diff -0.256 [-0.331, -0.177]  d_z -1.43  p 3.5e-05
+  long replay, news-exposed readout only     level   1.671   diff -0.136 [-0.385, +0.101]  d_z -0.24  p 0.31
+  long replay, non-watcher readout only      level   1.402   diff -0.668 [-0.874, -0.474]  d_z -1.42  p 1e-05
+  long replay, noise removed                 level   1.804   diff -0.895 [-1.161, -0.641]  d_z -1.47  p 2e-05
+  memory capacity, T 4000                    level   1.065   diff -0.710 [-0.878, -0.551]  d_z -1.84  p 5e-06
+  T 4000, noise removed                      level   1.060   diff -1.138 [-1.411, -0.873]  d_z -1.81  p 5e-06
+  T 4000, news-exposed readout only          level   1.465   diff +0.076 [-0.115, +0.269]  d_z +0.17  p 0.46
+  T 4000, non-watcher readout only           level   1.032   diff -0.867 [-1.025, -0.716]  d_z -2.41  p 1.5e-05
+  state variance locked to the news          level   0.720   diff -0.156 [-0.197, -0.115]  d_z -1.62  p 5e-06
+  same, non-watchers only                    level   0.586   diff +0.045 [-0.013, +0.104]  d_z +0.33  p 0.15
+  effective dimension                        level   4.508   diff +2.099 [+1.656, +2.565]  d_z +1.97  p 5e-06
+  effective dimension, news-locked part      level   2.802   diff +0.902 [+0.683, +1.133]  d_z +1.72  p 5e-06
+  effective dimension, noise part            level  22.801   diff +12.018 [+7.966, +16.609]  d_z +1.18  p 1e-05
+  noise variance surviving 50-step means     level   0.753   diff +0.103 [+0.064, +0.140]  d_z +1.17  p 9e-05
+  non-watchers' mean |corr|, news-locked     level   0.467   diff +0.143 [+0.109, +0.179]  d_z +1.74  p 5e-06
+  non-watchers' mean |corr|, noise           level   0.173   diff +0.108 [+0.062, +0.153]  d_z +1.00  p 0.00039
+  top-10% accounts: stubbornness             level   0.090   diff -0.022 [-0.028, -0.016]  d_z -1.58  p 2e-05
+  top-10% news-exposed: |susceptibility|     level   0.721   diff +0.237 [+0.189, +0.289]  d_z +2.04  p 5e-06
+agreement
+  memory capacity, loop's probe (T 2000)     level   1.597   diff -0.085 [-0.144, -0.020]  d_z -0.58  p 0.019
+  memory capacity, long replay               level   2.145   diff -0.063 [-0.209, +0.100]  d_z -0.18  p 0.45
+  memory capacity, long replay, validated    level   2.076   diff -0.165 [-0.264, -0.057]  d_z -0.68  p 0.0074
+  same fit scored on its training block      level   2.964   diff -0.222 [-0.270, -0.173]  d_z -1.94  p 1e-05
+  long replay, news-exposed readout only     level   1.844   diff +0.036 [-0.132, +0.208]  d_z +0.09  p 0.69
+  long replay, non-watcher readout only      level   1.892   diff -0.179 [-0.312, -0.020]  d_z -0.52  p 0.031
+  long replay, noise removed                 level   2.636   diff -0.063 [-0.309, +0.166]  d_z -0.11  p 0.64
+  memory capacity, T 4000                    level   1.808   diff +0.033 [-0.083, +0.165]  d_z +0.11  p 0.65
+  T 4000, noise removed                      level   2.349   diff +0.151 [-0.046, +0.375]  d_z +0.31  p 0.19
+  T 4000, news-exposed readout only          level   1.554   diff +0.164 [+0.014, +0.338]  d_z +0.43  p 0.059
+  T 4000, non-watcher readout only           level   1.748   diff -0.151 [-0.238, -0.060]  d_z -0.73  p 0.0054
+  state variance locked to the news          level   0.931   diff +0.055 [+0.047, +0.064]  d_z +2.71  p 1e-05
+  same, non-watchers only                    level   0.526   diff -0.015 [-0.063, +0.034]  d_z -0.14  p 0.55
+  effective dimension                        level   1.750   diff -0.660 [-0.858, -0.500]  d_z -1.55  p 5e-06
+  effective dimension, news-locked part      level   1.554   diff -0.346 [-0.433, -0.263]  d_z -1.75  p 5e-06
+  effective dimension, noise part            level  12.902   diff +2.119 [-1.035, +5.637]  d_z +0.27  p 0.24
+  noise variance surviving 50-step means     level   0.447   diff -0.203 [-0.252, -0.156]  d_z -1.81  p 5e-06
+  non-watchers' mean |corr|, news-locked     level   0.391   diff +0.067 [+0.043, +0.095]  d_z +1.10  p 5e-06
+  non-watchers' mean |corr|, noise           level   0.029   diff -0.036 [-0.058, -0.020]  d_z -0.81  p 1e-05
+  top-10% accounts: stubbornness             level   0.107   diff -0.006 [-0.012, +0.001]  d_z -0.37  p 0.12
+  top-10% news-exposed: |susceptibility|     level   0.428   diff -0.056 [-0.136, +0.024]  d_z -0.30  p 0.2
+salience + agreement
+  memory capacity, loop's probe (T 2000)     level   1.499   diff -0.183 [-0.283, -0.082]  d_z -0.77  p 0.0029
+  memory capacity, long replay               level   2.297   diff +0.090 [-0.067, +0.260]  d_z +0.23  p 0.33
+  memory capacity, long replay, validated    level   2.331   diff +0.090 [-0.006, +0.193]  d_z +0.38  p 0.099
+  same fit scored on its training block      level   3.213   diff +0.026 [-0.032, +0.076]  d_z +0.21  p 0.38
+  long replay, news-exposed readout only     level   2.078   diff +0.271 [+0.098, +0.454]  d_z +0.65  p 0.0074
+  long replay, non-watcher readout only      level   2.207   diff +0.136 [+0.003, +0.282]  d_z +0.42  p 0.07
+  long replay, noise removed                 level   2.670   diff -0.029 [-0.257, +0.187]  d_z -0.06  p 0.81
+  memory capacity, T 4000                    level   1.738   diff -0.038 [-0.161, +0.094]  d_z -0.13  p 0.58
+  T 4000, noise removed                      level   1.957   diff -0.240 [-0.445, -0.033]  d_z -0.49  p 0.041
+  T 4000, news-exposed readout only          level   1.828   diff +0.439 [+0.280, +0.596]  d_z +1.19  p 8.5e-05
+  T 4000, non-watcher readout only           level   1.760   diff -0.140 [-0.253, -0.023]  d_z -0.52  p 0.032
+  state variance locked to the news          level   0.919   diff +0.043 [+0.024, +0.060]  d_z +1.01  p 0.00047
+  same, non-watchers only                    level   0.862   diff +0.321 [+0.272, +0.370]  d_z +2.82  p 5e-06
+  effective dimension                        level   2.405   diff -0.004 [-0.218, +0.228]  d_z -0.01  p 0.97
+  effective dimension, news-locked part      level   2.063   diff +0.163 [+0.040, +0.297]  d_z +0.54  p 0.02
+  effective dimension, noise part            level  15.684   diff +4.901 [+1.740, +8.659]  d_z +0.59  p 0.0056
+  noise variance surviving 50-step means     level   0.589   diff -0.061 [-0.105, -0.016]  d_z -0.58  p 0.019
+  non-watchers' mean |corr|, news-locked     level   0.687   diff +0.362 [+0.316, +0.411]  d_z +3.22  p 5e-06
+  non-watchers' mean |corr|, noise           level   0.064   diff -0.002 [-0.025, +0.019]  d_z -0.04  p 0.87
+  top-10% accounts: stubbornness             level   0.098   diff -0.014 [-0.020, -0.008]  d_z -1.02  p 0.00035
+  top-10% news-exposed: |susceptibility|     level   0.723   diff +0.239 [+0.184, +0.296]  d_z +1.79  p 5e-06
+
+Decision rules, salience vs control:
+  A. noise: memory lost 0.710, still lost with noise removed 1.138, recovered -60% (supported at 50%)
+  B. fast hubs: stubbornness 0.090 vs 0.112
+  C. non-watchers: readout loses 0.867; news-exposed readout loses -0.076
+  Long-replay check: short-probe loss 0.800, validated long-replay loss 0.397, survives 49.6% (rule: at least 50%)

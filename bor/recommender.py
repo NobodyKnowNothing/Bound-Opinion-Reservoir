@@ -104,10 +104,12 @@ def epoch_metrics(res, X, sal, every=10):
     )
 
 
-def run_loop(params, rec: Recommender, epochs=40, epoch_len=500, probe_every=1, signal_seed=None):
+def run_loop(params, rec: Recommender, epochs=40, epoch_len=500, probe_every=1, signal_seed=None,
+             return_society=False):
     """Alternate driving the society and rewiring it. MC is probed every ``probe_every`` epochs (NaN otherwise).
 
     Each society seed gets its own news sequence, so runs don't share common shocks.
+    With ``return_society`` the rewired society comes back too: (history, society).
     """
     res = OpinionReservoir(params)
     rng = np.random.default_rng(5000 + params.seed if signal_seed is None else signal_seed)
@@ -121,4 +123,5 @@ def run_loop(params, rec: Recommender, epochs=40, epoch_len=500, probe_every=1, 
         m.update(probe(res) if probed else dict(mc=np.nan, dimension=np.nan, uninformed_corr=np.nan))
         history.append(m)
         rec.rewire(res, sal)
-    return {k: np.array([h[k] for h in history]) for k in history[0]}
+    history = {k: np.array([h[k] for h in history]) for k in history[0]}
+    return (history, res) if return_society else history
