@@ -1,0 +1,41 @@
+Real-data test, discovery half
+
+P1 there is memory: users 39129, days 232
+  MC = 0.001; shifted-news null mean 0.004, 95th pct 0.016, max 0.026 (30 shifts); p = 0.6774
+  per-lag increment: -0.000 +0.000 +0.000 +0.000 +0.000 +0.000 +0.000 +0.000 -0.000 +0.000 +0.000 +0.000 +0.000 +0.000
+  per-lag baseline R2: 0.62 0.60 0.55 0.52 0.48 0.45 0.42 0.35 0.27 0.22 0.18 0.08 0.04 -0.01
+
+P2 second-hand users hold less: 5995 matched pairs
+  activity (posts, active days) watchers 1354, 151; non-watchers 1259, 150
+  MC watchers 0.003, non-watchers 0.001, difference +0.002; pair-swap null 95th pct +0.002; p = 0.0448
+
+P3 edge-of-tolerance follows cost memory: 37473 non-watchers, 141 days, distance cut points [0.1189 0.2754]
+  groups by residual middling share (low -> high):
+    middling share 0.193 0.296 0.342 0.381 0.457
+    group MC       +0.002 +0.009 +0.020 +0.003 +0.005
+    mean posts     242 272 315 322 246
+    mean follows   118 149 173 175 85
+  slope -0.0002 per group; random-group null 5th pct -0.0022; p = 0.4627
+
+P4 middling links switch with the news: 2569856 live follow edges from 53871 users; 52 high-news and 51 low-news days
+    close     n  964786  switches/edge 4.759  interaction days 4.70  switches per interaction day 1.013  log(high/low news rate) -0.029
+    middling  n  891721  switches/edge 4.537  interaction days 4.27  switches per interaction day 1.062  log(high/low news rate) -0.026
+    far       n  713349  switches/edge 4.094  interaction days 3.52  switches per interaction day 1.164  log(high/low news rate) -0.006
+  4a middling - close (within interaction strata) -0.0184 [-0.0243, -0.0126] p = 1.0000
+  4a middling - far                               +0.0558 [+0.0466, +0.0649] p = 0.0010
+  4b news-day excess for middling                 -0.0080 [-0.0116, -0.0044] p = 1.0000
+
+One-sided p values, Holm-adjusted across the tests above:
+  P1         p 0.6774  Holm 1.0000  fail
+  P2         p 0.0448  Holm 0.2239  fail
+  P3         p 0.4627  Holm 1.0000  fail
+  P4a-close  p 1.0000  Holm 1.0000  fail
+  P4a-far    p 0.0010  Holm 0.0060  PASS
+  P4b        p 1.0000  Holm 1.0000  fail
+
+Verdict under the pre-registered rules (REAL_PREREG.md):
+  1 there is memory: not supported
+  2 second-hand users hold less: not interpretable (prediction 1 failed: the measure is too blunt)
+  3 middling follows cost memory: not interpretable (prediction 1 failed: the measure is too blunt)
+  4a middling links switch more than close and far links: not supported
+  4b more so on high-news days: not supported
