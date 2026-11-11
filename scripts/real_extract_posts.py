@@ -3,8 +3,8 @@
 Usage: python -I scripts/real_extract_posts.py data/bluesky/user_posts.tar.gz data/derived
 
 Writes (all under the output dir, which lives in the git-ignored data/):
-  users.npy     per-user summary for every user file in the archive
-  userdays.npy  per-(user, day) aggregates for users with >= MIN_SENT English posts
+  users.bin     per-user summary for every user file in the archive
+  userdays.bin  per-(user, day) aggregates for users with >= MIN_SENT English posts
 
 Opinion of one post: s = (sent_label - 1) * sent_score, in [-1, 1]
 (labels 0/1/2 = negative/neutral/positive from twitter-roberta; score = label confidence).
