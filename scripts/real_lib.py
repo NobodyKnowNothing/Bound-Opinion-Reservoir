@@ -166,6 +166,59 @@ def user_states(X, t0=0):
     return S
 
 
+# ----------------------------------------------------------------------------- round 2: attention
+N_CH = 7    # attention channels: the 6 fixed topics, then any news-lexicon mention
+
+
+def _channels(R):
+    return [R['tn'][:, k].astype(np.float64) for k in range(R['tn'].shape[1])] + \
+           [(R['n_sent'] - R['n_free']).astype(np.float64)]
+
+
+def attention_states(UD, users, t0, t1):
+    """Round 2 user states, (T, N * N_CH) float32, user-major (column i * N_CH + c).
+    Per user, day and channel: log(1 + number of own English posts on the channel). Silent
+    days are 0, never carried forward, so any persistence is the user's own posting. Then
+    the same causal high-pass (restarting at the break), holiday masking and weekday
+    removal as the sentiment states."""
+    users = np.asarray(users)
+    sel = np.isin(UD['user'], users) & (UD['day'] >= t0) & (UD['day'] < t1)
+    R = UD[sel]
+    col = np.searchsorted(users, R['user'])
+    day = R['day'] - t0
+    T, N = t1 - t0, len(users)
+    hol = holiday_mask()[t0:t1]
+    dow = (np.arange(T) + t0) % 7
+    out = np.empty((T, N, N_CH), np.float32)
+    for c, w in enumerate(_channels(R)):
+        X = np.zeros((T, N))
+        np.add.at(X, (day, col), w)
+        X = np.log1p(X)
+        X[hol] = np.nan
+        S = causal_highpass(X, restart=BREAK - t0)
+        S[hol] = np.nan
+        for d in range(7):
+            S[dow == d] -= np.nanmean(S[dow == d], 0)
+        out[:, :, c] = S
+    return out.reshape(T, N * N_CH)
+
+
+def attention_profiles(UD, t0, t1, min_posts):
+    """(max user + 1, N_CH) square roots of each account's share of own English posts on
+    each channel in [t0, t1); NaN rows for accounts with fewer than min_posts posts.
+    Euclidean distance between rows is a Hellinger-type distance between attention mixes."""
+    sel = (UD['day'] >= t0) & (UD['day'] < t1)
+    R = UD[sel]
+    m = int(R['user'].max()) + 1
+    n = np.bincount(R['user'], weights=R['n_sent'], minlength=m)
+    P = np.full((m, N_CH), np.nan)
+    ok = n >= min_posts
+    for c, w in enumerate(_channels(R)):
+        s = np.bincount(R['user'], weights=w, minlength=m)
+        P[ok, c] = np.sqrt(s[ok] / n[ok])
+    return P
+
+
 # ----------------------------------------------------------------------------- ridge
 ALPHAS = np.logspace(-1, 5, 13)
 

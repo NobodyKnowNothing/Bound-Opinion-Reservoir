@@ -1,8 +1,8 @@
 """Text summary and figure for a real-data run.
 
-Usage: python scripts/real_report.py discovery|confirm
-Merges results/real_<half>_p12.npy and results/real_<half>_p34.npy; writes
-results/real_<half>.txt and figures/real_<half>.png.
+Usage: python scripts/real_report.py discovery|confirm [2]
+Merges results/real_<half>[_r2]_p12.npy and _p34.npy; writes results/real_<half>[_r2].txt
+and figures/real_<half>[_r2].png. The optional 2 selects round 2 (attention states).
 """
 import os, sys
 import numpy as np
@@ -18,13 +18,16 @@ ROOT = os.path.join(os.path.dirname(__file__), '..')
 
 def main():
     half = sys.argv[1]
-    tag = ''
+    rnd = int(sys.argv[2]) if len(sys.argv) > 2 else 1
+    tag = '' if rnd == 1 else '_r2'
+    prereg = 'REAL_PREREG.md' if rnd == 1 else 'REAL_PREREG2.md'
     r = {}
     for part in ('_p12', '_p34'):
-        f = os.path.join(ROOT, 'results', f'real_{half}{part}.npy')
+        f = os.path.join(ROOT, 'results', f'real_{half}{tag}{part}.npy')
         if os.path.exists(f):
             r.update(np.load(f, allow_pickle=True).item())
-    lines = [f'Real-data test, {half} half{(" " + tag) if tag else ""}', '']
+    lines = [f'Real-data test, round {rnd} '
+             f'({"daily sentiment" if rnd == 1 else "topic attention"} states), {half} half', '']
     pv = {}
     if 'p1' in r:
         p1 = r['p1']
@@ -77,7 +80,7 @@ def main():
         for k, p in pv.items():
             lines.append(f'  {k:10s} p {p:.4f}  Holm {adj[k]:.4f}  {"PASS" if adj[k] < 0.05 else "fail"}')
         ok = {k: a < 0.05 for k, a in adj.items()}
-        lines += ['', 'Verdict under the pre-registered rules (REAL_PREREG.md):']
+        lines += ['', f'Verdict under the pre-registered rules ({prereg}):']
         if 'P1' in ok:
             lines.append(f"  1 there is memory: {'supported' if ok['P1'] else 'not supported'}")
             for k, name in (('P2', '2 second-hand users hold less'), ('P3', '3 middling follows cost memory')):

@@ -36,8 +36,13 @@ CFG = dict(
     n_perm=200,
     n_boot=1000,
     field='free',
+    state='sentiment',      # round 1: daily lexicon-free sentiment; round 2: 'attention'
+    distance='sentiment',   # round 1: |mean sentiment| distance; round 2: attention profiles
 )
+# Round 2 (REAL_PREREG2.md): the same tests with attention states and attention distance.
+ROUND2 = dict(state='attention', distance='attention')
 SEED = 7
+ROUND = 1
 
 
 def win(name):
@@ -82,12 +87,53 @@ def roles(US, users):
     return news >= CFG['watcher_min_news'], news == 0
 
 
+def states(UD, users, t0, t1):
+    """(S, channels per user). Columns of user i are i * nch ... i * nch + nch - 1."""
+    if CFG['state'] == 'attention':
+        return L.attention_states(UD, users, t0, t1), L.N_CH
+    X, _ = L.daily_opinion(UD, users, CFG['field'], t0, t1)
+    return L.user_states(X, t0), 1
+
+
+def opinions(UD, t0, t1):
+    """Per-account position for distances: (m,) sentiment or (m, N_CH) attention profile."""
+    if CFG['distance'] == 'attention':
+        return L.attention_profiles(UD, t0, t1, CFG['opinion_min_posts'])
+    return late_opinions(UD, t0, t1)
+
+
+def pad_rows(op, m):
+    if len(op) >= m:
+        return op
+    return np.concatenate([op, np.full((m - len(op),) + op.shape[1:], np.nan)])
+
+
+def dist(op, a, b):
+    """Distance between accounts a and b (arrays of ids); NaN where either has no position."""
+    d = op[a] - op[b]
+    return np.abs(d) if d.ndim == 1 else np.sqrt((d ** 2).sum(1))
+
+
+def has_pos(op, idx):
+    v = op[idx]
+    return np.isfinite(v) if v.ndim == 1 else np.isfinite(v).all(1)
+
+
 # ----------------------------------------------------------------------------- MC workers
 _G = {}
 
 
 def _init(payload):
     _G.update(payload)
+    if 'S_path' in payload:                    # workers share one on-disk copy of the states
+        _G['S'] = np.load(payload['S_path'], mmap_mode='r')
+
+
+def shared(S, name):
+    """Write S where pool workers can memory-map it instead of each receiving a copy."""
+    path = os.path.join(L.DERIVED, f'_states_{name}.npy')
+    np.save(path, np.ascontiguousarray(S))
+    return path
 
 
 def _mc_shift(shift):
@@ -106,6 +152,9 @@ def mc_with_null(S, U, rows, pool):
 
 def _group_mc(cols):
     S, U, rows = _G['S'], _G['U'], _G['rows']
+    nch = _G.get('nch', 1)
+    if nch > 1:
+        cols = (np.asarray(cols)[:, None] * nch + np.arange(nch)).ravel()
     SF = L.StateFolds(S[:, cols], rows, n_pc=CFG['n_pc'], n_folds=CFG['n_folds'])
     return L.memory_capacity(SF, U, baseline_cache=_G.setdefault('cache', {}))[0]
 
@@ -140,8 +189,7 @@ def run_p1_p2(half, US, UD, cand, U_all, out, nproc):
     t0, t1 = win('win_full')
     users = active_users(UD, cand, t0, t1)
     watch, non = roles(US, users)
-    X, _ = L.daily_opinion(UD, users, CFG['field'], t0, t1)
-    S = L.user_states(X, t0)
+    S, nch = states(UD, users, t0, t1)
     U = U_all[t0:t1]
     rows = valid_rows(S, t0, t1)
     out['p1_users'] = len(users)
@@ -165,7 +213,7 @@ def run_p1_p2(half, US, UD, cand, U_all, out, nproc):
         j = int(np.argmin(d))
         pairs_a.append(i); pairs_b.append(C.pop(j))
     pa, pb = np.array(pairs_a), np.array(pairs_b)
-    pool = Pool(nproc, initializer=_init, initargs=({'S': S, 'U': U, 'rows': rows, 'pairs': (pa, pb)},))
+    pool = Pool(nproc, initializer=_init, initargs=({'S_path': shared(S, 'p2'), 'U': U, 'rows': rows, 'pairs': (pa, pb), 'nch': nch},))
     mw, mn = pool.map(_group_mc, [pa, pb])
     diff = mw - mn
     perms = np.array(pool.map(_p2_perm, range(1000, 1000 + CFG['n_perm']))); pool.close()
@@ -206,37 +254,32 @@ def run_p3(half, US, UD, cand, U_all, out, nproc, cuts=None):
     t0, t1 = win('win_late')
     users = active_users(UD, cand, t0, t1)
     watch, non = roles(US, users)
-    op = late_opinions(UD, t0, t1)
-    op = np.concatenate([op, np.full(max(0, int(users.max()) + 1 - len(op)), np.nan)])
     F = follow_table(users)
-    opj = np.full(len(F), np.nan)
-    inr = F[:, 1] < len(op)
-    opj[inr] = op[F[inr, 1]]
-    Fo = F[np.isfinite(opj)]
-    dist = np.abs(op[Fo[:, 0]] - op[Fo[:, 1]])
+    op = pad_rows(opinions(UD, t0, t1), int(max(users.max(), F.max())) + 1)
+    Fo = F[has_pos(op, F[:, 1])]
+    d = dist(op, Fo[:, 0], Fo[:, 1])
     if cuts is None:
-        cuts = np.percentile(dist[np.isfinite(dist)], [100 / 3, 200 / 3])
+        cuts = np.percentile(d[np.isfinite(d)], [100 / 3, 200 / 3])
     out['cuts'] = cuts
     src = Fo[:, 0]
     pos = np.searchsorted(users, src)
     n_op = np.bincount(pos, minlength=len(users))
-    n_mid = np.bincount(pos, weights=(dist >= cuts[0]) & (dist < cuts[1]), minlength=len(users))
+    n_mid = np.bincount(pos, weights=(d >= cuts[0]) & (d < cuts[1]), minlength=len(users))
     outdeg = np.bincount(np.searchsorted(users, F[:, 0]), minlength=len(users))
     n_post, n_day = activity(UD, users, t0, t1)
-    elig = non & (n_op >= CFG['p3_min_followees']) & np.isfinite(op[users])
+    elig = non & (n_op >= CFG['p3_min_followees']) & has_pos(op, users)
     idx = np.flatnonzero(elig)
     share = n_mid[idx] / n_op[idx]
     Z = np.column_stack([np.ones(len(idx)), np.log1p(outdeg[idx]), np.log1p(n_op[idx]),
                          np.log1p(n_post[idx]), np.log1p(n_day[idx])])
     beta = np.linalg.lstsq(Z, share, rcond=None)[0]
     resid = share - Z @ beta
-    X, _ = L.daily_opinion(UD, users[idx], CFG['field'], t0, t1)
-    S = L.user_states(X, t0)
+    S, nch = states(UD, users[idx], t0, t1)
     U = U_all[t0:t1]
     rows = valid_rows(S, t0, t1)
     order = np.argsort(resid)
     groups = np.array_split(order, CFG['p3_groups'])
-    pool = Pool(nproc, initializer=_init, initargs=({'S': S, 'U': U, 'rows': rows, 'n': len(idx)},))
+    pool = Pool(nproc, initializer=_init, initargs=({'S_path': shared(S, 'p3'), 'U': U, 'rows': rows, 'n': len(idx), 'nch': nch},))
     gmc = np.array(pool.map(_group_mc, groups))
     slope = _slope(gmc)
     perms = np.array(pool.map(_p3_perm, range(5000, 5000 + CFG['n_perm']))); pool.close()
@@ -282,8 +325,8 @@ def run_p4(half, US, UD, users, op, cuts, U_all, out):
     e_idx = np.searchsorted(live_keys, sw_edge)
     n_sw = np.bincount(e_idx, minlength=len(live_keys))
     src = (live_keys >> 32).astype(np.int64); dst = (live_keys & 0xFFFFFFFF).astype(np.int64)
-    opd = np.where(dst < len(op), op[np.minimum(dst, len(op) - 1)], np.nan)
-    d = np.abs(op[src] - opd)
+    op = pad_rows(op, int(max(src.max(), dst.max())) + 1)
+    d = dist(op, src, dst)
     ok = np.isfinite(d)
     cls = np.where(d < cuts[0], 0, np.where(d < cuts[1], 1, 2))
     strata = np.searchsorted(np.array(CFG['p4_strata']), n_int_days, side='right') - 1
@@ -360,28 +403,35 @@ def main():
     ap.add_argument('--nproc', type=int, default=10)
     ap.add_argument('--only', default='1234')
     ap.add_argument('--tag', default='')
+    ap.add_argument('--round', type=int, default=1, choices=[1, 2])
     args = ap.parse_args()
+    global ROUND
+    ROUND = args.round
+    if ROUND == 2:
+        CFG.update(ROUND2)
+    rtag = '' if ROUND == 1 else '_r2'
+    cuts_file = os.path.join(ROOT, 'results', f'real_cuts{rtag}.json')
     half = 0 if args.half == 'discovery' else 1
     US, UD, cand = base_population(half)
     U_all, ev, _, _ = L.news_series()
     if args.cmd == 'describe':
         describe(US, UD, cand)
         return
-    out = dict(cfg=CFG, half=args.half)
+    out = dict(cfg=dict(CFG), half=args.half, round=ROUND)
     t = time.time()
     if '1' in args.only or '2' in args.only:
         run_p1_p2(half, US, UD, cand, U_all, out, args.nproc)
     if '3' in args.only or '4' in args.only:
         cuts = None
-        if half == 1 and os.path.exists(os.path.join(ROOT, 'results', 'real_cuts.json')):
-            cuts = np.array(json.load(open(os.path.join(ROOT, 'results', 'real_cuts.json'))))
+        if half == 1:
+            cuts = np.array(json.load(open(cuts_file)))
         users, op, cuts = run_p3(half, US, UD, cand, U_all, out, args.nproc, cuts)
         if half == 0:
-            json.dump(list(map(float, cuts)), open(os.path.join(ROOT, 'results', 'real_cuts.json'), 'w'))
+            json.dump(list(map(float, cuts)), open(cuts_file, 'w'))
         if '4' in args.only:
             run_p4(half, US, UD, users, op, cuts, U_all, out)
     out['seconds'] = time.time() - t
-    np.save(os.path.join(ROOT, 'results', f'real_{args.half}{args.tag}.npy'), out, allow_pickle=True)
+    np.save(os.path.join(ROOT, 'results', f'real_{args.half}{rtag}{args.tag}.npy'), out, allow_pickle=True)
 
 
 def describe(US, UD, cand):

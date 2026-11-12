@@ -31,6 +31,16 @@ happens when a recommender uses that readout to decide who sees whom?
   a frozen gate). Under the live bound, links to hubs keep crossing ε, and the switching
   interferes with what the readout can decode. All eleven tests fixed in advance pass on
   24 unused seeds.
+- **It is the hard threshold cliff at ε, not distance-dependent confidence itself, and
+  outrage interacts with hub topologies.** Replacing the step gate `1(|x_i − x_j| < ε)`
+  with a smooth logistic boundary of width τ = 0.12 keeps bounded confidence live and
+  opinion-dependent, cuts gate-switching forcing on salience by 6× (0.021 → 0.0035), and
+  flips salience from −0.40 behind control to +0.44 ahead (2.56 vs 2.12; +0.38 when
+  calibrated to match active-link rates). Moderate outrage (11.3) boosts control (+0.32)
+  and salience (+0.44, by evacuating undecided links from 57% to 23%), but fails to help
+  the combined salience + agreement policy (difference-in-differences +0.45) and erodes
+  the frozen-gate hub lead (+0.61 → +0.10) because high-gain hubs saturate under feed
+  amplification. All nine pre-registered tests pass on seeds 300–323 (Holm p ≤ 0.00025).
 
 ## The model ([bor/model.py](bor/model.py))
 
@@ -336,6 +346,139 @@ included. Per-seed news and epoch-averaged metrics remove it.
 Caveats: one network size and topology, i.i.d. input, one recommender rate and β. Memory
 is probed on a frozen copy of the society, not while the platform is rewiring it.
 
+### Outrage and smooth gating on the rewired societies ([scripts/stage1_outrage.py](scripts/stage1_outrage.py))
+
+![stage1](figures/stage1_confirm.png)
+
+The feedback and surgery experiments above all ran at `outrage = 0` and replaced the
+confidence bound with gates that ignore live opinions (`static`, `flicker`, or anchored
+opinions). That left two questions open:
+
+1. **Is the salience loss caused by opinion-distance gating as such, or specifically by the
+   discontinuous Heaviside cliff at `|x_i − x_j| = ε`?** Replacing `1(|x_i − x_j| < ε)`
+   with a smooth logistic gate `1 / (1 + exp((|x_i − x_j| − ε) / τ))` keeps bounded
+   confidence 100% live and opinion-dependent while softening the threshold.
+2. **How does feed outrage (Result 1) interact with the recommender-rewired topologies
+   (Result 2)?** In open-loop random graphs, moderate outrage (11.3) boosts memory by
+   pulling opinions apart; in rewired graphs, pulling opinions apart across follow links
+   is what drives confidence-bound switching.
+
+Exploratory runs were carried out on the cached discovery societies (seeds 0–19;
+[results/stage1_discovery.txt](results/stage1_discovery.txt),
+[figures/stage1_discovery.png](figures/stage1_discovery.png)), nine directional tests were
+fixed in advance, and confirmation was run on the 24 untouched societies (seeds 300–323;
+[results/stage1_confirm.txt](results/stage1_confirm.txt)). All nine pass (Holm p ≤ 0.00025).
+Numbers below are from the fresh confirmation seeds (300–323), validated ridge, T = 10 000.
+
+**1. Smooth bounded confidence rescues the salience network under live opinion dynamics:**
+
+| confidence gate (outrage = 0) | control | salience | both | salience − control [95% CI], d_z | salience forcing (`f_var`) |
+|---|---|---|---|---|---|
+| hard step (τ = 0, live) | 2.28 | 1.88 | 2.39 | −0.40 [−0.51, −0.30] | 0.0213 |
+| logistic τ = 0.03 | 2.29 | 2.02 | 2.44 | −0.28 | 0.0196 |
+| logistic τ = 0.06 | 2.22 | 2.23 | 2.48 | +0.01 | 0.0142 |
+| logistic τ = 0.12 (at ε = 0.3) | 2.12 | 2.56 | 2.59 | +0.44 [+0.36, +0.52], +2.15 | 0.0035 |
+| logistic τ = 0.12 (open-rate matched) | 2.18 | 2.55 | 2.65 | +0.38 [+0.28, +0.51], +1.27 | 0.0049 |
+| logistic τ = 0.25 | 1.99 | 2.51 | 2.67 | +0.52 | 0.0003 |
+
+- Softening the boundary to τ = 0.12 cuts gate-switching forcing on salience non-watchers by
+  6× (0.0213 → 0.0035, 24/24 seeds), raises salience memory by +0.68 [+0.59, +0.77]
+  (24/24 seeds, d_z = +2.98), and flips `salience − control` from −0.40 to +0.44 (23/24
+  seeds; +0.38 on 24/24 seeds when `ε*` is calibrated per society to match the hard gate's
+  realized active-link rate).
+- Distance-dependent confidence gating does not break the hub network; the discontinuous
+  threshold cliff at `ε` does.
+
+**2. Outrage × recommender topology (live vs frozen gate):**
+
+| outrage | control (live / static) | salience (live / static) | agreement (live / static) | both (live / static) | salience undecided / `f_var` |
+|---|---|---|---|---|---|
+| 0 (plain HK) | 2.28 / 2.67 | 1.88 / 3.28 | 2.09 / 2.26 | 2.39 / 3.01 | 0.57 / 0.021 |
+| 2 | 2.28 / 2.78 | 2.06 / 3.44 | 2.17 / 2.36 | 2.36 / 2.84 | 0.44 / 0.023 |
+| 5.6 | 2.58 / 2.91 | 2.42 / 3.26 | 2.38 / 2.47 | 2.38 / 2.63 | 0.32 / 0.027 |
+| 11.3 | 2.60 / 2.81 | 2.31 / 2.91 | 2.40 / 2.33 | 2.26 / 2.38 | 0.23 / 0.035 |
+| 32 | 2.38 / 2.44 | 2.13 / 2.57 | 2.09 / 1.97 | 2.00 / 1.90 | 0.17 / 0.064 |
+| 256 | 2.13 / 2.23 | 2.09 / 2.35 | 1.71 / 1.56 | 1.81 / 1.74 | 0.16 / 0.168 |
+
+- **Live salience improves under moderate outrage (+0.44 at outrage 11.3, 22/24 seeds) by
+  evacuating the ε boundary.** Pulling opinions apart (extremity 0.40 → 0.75) cuts the
+  share of undecided non-watcher links (`0.1 < open_rate < 0.9`) from 57% to 23% (−0.34
+  [−0.37, −0.30], d_z = −3.90, 24/24 seeds) and reduces link distance swing from 0.21 to
+  0.15, though salience still trails control (2.31 vs 2.60).
+- **The combined policy (`both`) gets no boost from moderate outrage.** While control gains
+  +0.32 [+0.17, +0.45] at outrage 11.3, `both` moves by −0.13 (2.39 → 2.26); the
+  difference-in-differences is +0.45 [+0.26, +0.64], d_z = +0.94, Holm p = 0.00024 (19/24
+  seeds).
+- **Why outrage hurts `both` and erodes the static hub lead: hub over-saturation.** Under
+  the frozen gate (`static`, where switching forcing `f_var = 0`), `both` falls
+  monotonically with outrage (3.01 → 2.84 → 2.63 → 2.38), and `salience`'s static lead over
+  control drops from +0.61 at outrage 0 to +0.10 at outrage 11.3 (reduction +0.50
+  [+0.34, +0.68], d_z = +1.16, Holm p = 2.2·10⁻⁵, 21/24 seeds). Because salience rewiring
+  already concentrates links onto high-susceptibility news hubs (`|w| = 0.72` vs `0.48`),
+  exponential feed amplification pushes hub-driven neighbourhoods into winner-take-all
+  saturation early, compressing graded signal variation even when links never switch.
+
+## Real-data test: Bluesky and GDELT (status log)
+
+Plan: [REAL_DATA.md](REAL_DATA.md). Data: Failla & Rossetti 2024, Zenodo 14669616, and
+GDELT 1.0. Only aggregates are reported; post text stays in the git-ignored `data/`.
+
+### Done
+
+- **Extraction.**
+  - Posts: 233 M posts became per-user-day aggregates: 2.36 M users, of whom 307 k
+    have opinion rows.
+  - Interactions: 150.5 M replies, reposts and quotes.
+  - Follows: 32.1 M edges between users with opinion rows.
+  - GDELT: 48 daily news features.
+  - Scripts: `scripts/real_extract_*.py` and `scripts/real_gdelt.py`.
+- **Round 1, daily sentiment states.** Developed on the discovery half of the users, then
+  pre-registered and pushed in [REAL_PREREG.md](REAL_PREREG.md) (commit `933706e`) before
+  the confirmation half was scored. Results are in [REAL_RESULTS.md](REAL_RESULTS.md) and
+  `results/real_confirm.txt`.
+  - P1, memory beyond the news baseline: MC 0.001 against a shifted-news null with mean
+    0.005; p = 0.61. **Not detected.**
+  - P2 and P3: not interpretable, because P1 failed.
+  - P4: link switching falls with sentiment distance (close > middling > far), and
+    middling links show no excess on high-news days. **Not supported.** P4 also uses
+    sentiment, to sort links by distance, so it is weakened if sentiment is the wrong
+    opinion axis.
+  - Reading: sentiment does not carry the news. Around 7 Oct 2023, Israel/Gaza posts rose
+    about 70-fold while mean sentiment moved by 0.02. The memory claims are untested
+    rather than refuted.
+- **Round 2, topic-attention states (in progress, discovery half only).**
+  - States: per user and day, log(1 + posts) on each of 6 fixed topics plus any
+    news-lexicon mention. No carry-forward, so any persistence is the user's own posting.
+  - Distance for P3/P4: a Hellinger-type distance between users' late-window attention
+    mixes. Per-topic stance was too sparse: only 1.7–9 k users have five or more posts on
+    any one topic.
+  - Exploration on discovery:
+    - 20 per-user PCs give MC ≈ +0.012, positive at every lag. Against 21 shifts:
+      null 95th percentile 0.016, p ≈ 0.23. With 5 PCs: MC 0.013, p ≈ 0.16.
+    - Crowd-level readouts (the user mean per channel, or crowd log shares) give MC ≤ 0.
+    - A time-reversed "future news" control was dominated by overfitting (−0.20 to
+      −0.29), so it was dropped.
+  - Code: `--round 2` in `scripts/real_analysis.py` and `real_report.py`, plus
+    `attention_states` and `attention_profiles` in `scripts/real_lib.py`. Pool workers
+    now memory-map the state matrix instead of each getting a copy.
+
+### Not done
+
+- **Round 2 smoke test.** It exited with code 4 and no traceback. Out of memory is
+  likely, since other processes held about 11 GB at the time, but it was not diagnosed.
+  The round-2 code is committed but has not run end to end.
+- **Round 2 discovery run.** P1–P4 have not been run through the pipeline. The cut
+  points (`results/real_cuts_r2.json`) have not been fitted.
+- **Round 2 pre-registration.** `REAL_PREREG2.md` is not written, committed or pushed.
+  It must list every variant tried on discovery (above) and drop the reversed control.
+- **Round 2 confirmation and write-up.** Not started. The confirmation half has been
+  scored once already, with sentiment, so it is a fresh holdout only for the attention
+  measure.
+- **Positive control.** Not done: inject a known fading-memory signal into the real
+  states to find the smallest MC the pipeline can detect. This would tell "measured
+  wrong" apart from "no memory".
+- **Pushing.** The round-1 results commit (`55b70ca`) has not been pushed to origin.
+
 ## Reproduce
 
 ```bash
@@ -351,6 +494,8 @@ python scripts/societies.py 0 20       # caches end-of-loop societies; results/s
 python scripts/mechanism.py results/societies_0_20.npz --round5   # exploratory surgery; rounds 1-5
 python scripts/societies.py 300 324
 python scripts/confirm_mechanism.py results/societies_300_324.npz # figures/mechanism.png, results/confirm_mechanism.txt
+python scripts/stage1_outrage.py results/societies_0_20.npz            # Stage 1 discovery; results/stage1_discovery.txt
+python scripts/stage1_outrage.py results/societies_300_324.npz --confirm # Stage 1 confirmation; figures/stage1_confirm.png
 ```
 
 ## Changes since the first write-up
@@ -373,3 +518,9 @@ python scripts/confirm_mechanism.py results/societies_300_324.npz # figures/mech
    (−0.80 → −0.40 with validated ridge) and invented the combined policy's cost.
 9. The cause of the loss was tested by surgery and confirmed on fresh seeds: it comes from
    the live confidence gate on a network that is otherwise better, not from the hubs.
+10. Smooth logistic confidence gating and outrage × topology interactions were tested on
+    discovery seeds (0–19) and confirmed on fresh seeds (300–323, 9 of 9 tests passing):
+    softening the threshold cliff at ε rescues salience under live opinions (+0.44 ahead of
+    control at τ = 0.12), while moderate outrage (11.3) helps live salience by evacuating
+    undecided links (57% → 23%) but fails to help the combined policy and erodes the
+    frozen-gate hub advantage due to hub saturation.
