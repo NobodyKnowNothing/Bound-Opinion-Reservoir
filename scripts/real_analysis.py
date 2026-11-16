@@ -35,6 +35,7 @@ CFG = dict(
     p4_news_frac=1 / 3,     # top / bottom third of late-window days by ||u_t||
     n_perm=200,
     n_boot=1000,
+    p4s_min_posts=50,       # secondary P4 (option 5): positions only for accounts this active
     field='free',
     state='sentiment',      # round 1: daily lexicon-free sentiment; round 2: 'attention'
     distance='sentiment',   # round 1: |mean sentiment| distance; round 2: attention profiles
@@ -293,7 +294,7 @@ def run_p3(half, US, UD, cand, U_all, out, nproc, cuts=None):
     return users, op, cuts
 
 
-def run_p4(half, US, UD, users, op, cuts, U_all, out):
+def run_p4(half, US, UD, users, op, cuts, U_all, out, key='p4'):
     t0, t1 = win('win_late')
     I = np.load(os.path.join(L.DERIVED, 'interactions.npy'), mmap_mode='r')
     sel = (I['day'] >= t0 - 6) & (I['day'] < t1)
@@ -384,12 +385,12 @@ def run_p4(half, US, UD, users, op, cuts, U_all, out):
                          int_days=float(E['n_int'][mg].mean()),
                          per_int_day=float(E['n_sw'][mg].sum() / E['n_int'][mg].sum()),
                          logratio=float(obs['logratio'][g]))
-    out['p4'] = dict(n_edges=int(ok.sum()), n_sources=len(us), raw=raw,
+    out[key] = dict(n_edges=int(ok.sum()), n_sources=len(us), raw=raw,
                      d_close=obs['close'], ci_close=ci_close, p_close=p_close,
                      d_far=obs['far'], ci_far=ci_far, p_far=p_far,
                      d_news=obs['news'], ci_news=ci_news, p_news=p_news,
                      hi_days=nh, lo_days=nl)
-    print(f"P4 edges {ok.sum()} sources {len(us)}  mid-close {obs['close']:.4f} p {p_close:.4f}  "
+    print(f"{key.upper()} edges {ok.sum()} sources {len(us)}  mid-close {obs['close']:.4f} p {p_close:.4f}  "
           f"mid-far {obs['far']:.4f} p {p_far:.4f}  news {obs['news']:.4f} p {p_news:.4f}", flush=True)
     for k, v in raw.items():
         print('   ', k, v)
@@ -430,6 +431,18 @@ def main():
             json.dump(list(map(float, cuts)), open(cuts_file, 'w'))
         if '4' in args.only:
             run_p4(half, US, UD, users, op, cuts, U_all, out)
+    if '5' in args.only:
+        # Secondary, not in the Holm family (REAL_PREREG2.md): P4 with positions only for
+        # accounts with >= p4s_min_posts late-window posts, so noisy profiles of quiet
+        # accounts cannot drive the distance classes. Same users and cut points as P4.
+        t0, t1 = win('win_late')
+        users = active_users(UD, cand, t0, t1)
+        cuts = np.array(json.load(open(cuts_file)))
+        k = CFG['opinion_min_posts']
+        CFG['opinion_min_posts'] = CFG['p4s_min_posts']
+        op = opinions(UD, t0, t1)
+        CFG['opinion_min_posts'] = k
+        run_p4(half, US, UD, users, op, cuts, U_all, out, key='p4s')
     out['seconds'] = time.time() - t
     np.save(os.path.join(ROOT, 'results', f'real_{args.half}{rtag}{args.tag}.npy'), out, allow_pickle=True)
 

@@ -22,7 +22,7 @@ def main():
     tag = '' if rnd == 1 else '_r2'
     prereg = 'REAL_PREREG.md' if rnd == 1 else 'REAL_PREREG2.md'
     r = {}
-    for part in ('_p12', '_p34'):
+    for part in ('_p12', '_p34', '_p5'):
         f = os.path.join(ROOT, 'results', f'real_{half}{tag}{part}.npy')
         if os.path.exists(f):
             r.update(np.load(f, allow_pickle=True).item())
@@ -74,6 +74,16 @@ def main():
                   f"  4b news-day excess for middling                 {p4['d_news']:+.4f} "
                   f"[{p4['ci_news'][0]:+.4f}, {p4['ci_news'][1]:+.4f}] p = {p4['p_news']:.4f}", '']
         pv['P4a-close'] = p4['p_close']; pv['P4a-far'] = p4['p_far']; pv['P4b'] = p4['p_news']
+    if 'p4s' in r:
+        q = r['p4s']
+        lines += [f"Secondary (not in the Holm family): P4 with positions only for accounts with >= "
+                  f"{r['cfg'].get('p4s_min_posts', 50)} late-window posts; {q['n_edges']} edges from {q['n_sources']} users"]
+        for k, v in q['raw'].items():
+            lines.append(f"    {k:9s} n {v['n']:7d}  switches per interaction day {v['per_int_day']:.3f}  "
+                         f"log(high/low news rate) {v['logratio']:+.3f}")
+        lines += [f"  middling - close {q['d_close']:+.4f} [{q['ci_close'][0]:+.4f}, {q['ci_close'][1]:+.4f}] p = {q['p_close']:.4f}",
+                  f"  middling - far   {q['d_far']:+.4f} [{q['ci_far'][0]:+.4f}, {q['ci_far'][1]:+.4f}] p = {q['p_far']:.4f}",
+                  f"  news-day excess  {q['d_news']:+.4f} [{q['ci_news'][0]:+.4f}, {q['ci_news'][1]:+.4f}] p = {q['p_news']:.4f}", '']
     if pv:
         adj = dict(zip(pv, L.holm(list(pv.values()))))
         lines.append('One-sided p values, Holm-adjusted across the tests above:')
