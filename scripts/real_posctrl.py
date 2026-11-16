@@ -6,10 +6,14 @@ This gives the smallest memory the pipeline can detect against the shifted-news 
 that a failed P1 can be read as "no memory" rather than "measured wrong".
 
 Planted trace, the same for every amplitude:
-  m(t) = sum_{k=1..14} lam^(k-1) * g . u(t-k)        (lam = 0.8; g a random unit vector over
-                                                     the 5 news components; NaN news = 0)
+  m_i(t) = sum_{k=1..14} lam^(k-1) * g_i . u(t-k)    (lam = 0.8; g_i a random unit vector over
+                                                     the 5 news components, one per user, like
+                                                     the model's w_i; NaN news = 0)
   A random 30% of users ("informed") get, on every attention channel c,
-      S[t, i, c] += amp * sd(S[:, i, c]) * w_ic * m(t) / sd(m),   w_ic ~ U(-1, 1).
+      S[t, i, c] += amp * sd(S[:, i, c]) * w_ic * m_i(t) / sd(m_i),   w_ic ~ U(-1, 1).
+  A first version used one g shared by all users. Its oracle (the trace alone as the
+  state) scored MC -0.004: one news direction carries almost nothing beyond the news
+  baseline, so that control could not calibrate anything and was replaced.
   So amp is the planted trace's standard deviation relative to each informed column's own
   day-to-day variation. m(t) uses only news up to yesterday, like a reservoir.
 
@@ -25,14 +29,15 @@ import real_lib as L  # noqa: E402
 import real_analysis as A  # noqa: E402
 
 ROOT = os.path.join(os.path.dirname(__file__), '..')
-AMPS = [0.0, 0.01, 0.02, 0.03, 0.05, 0.1, 0.2, 0.5]
+AMPS = [0.0, 0.02, 0.05, 0.1, 0.2, 0.3, 0.5, 1.0]
 LAM, KTR, FRAC = 0.8, 14, 0.3
 
 
-def trace(U, rng):
-    g = rng.normal(size=U.shape[1]); g /= np.linalg.norm(g)
-    v = np.nan_to_num(U @ g)
-    m = np.zeros(len(U))
+def traces(U, n, rng):
+    """(T, n) exponential traces of the news, each along its own random unit vector g_i."""
+    G = rng.normal(size=(n, U.shape[1])); G /= np.linalg.norm(G, axis=1, keepdims=True)
+    v = np.nan_to_num(U) @ G.T
+    m = np.zeros_like(v)
     for k in range(1, KTR + 1):
         m[k:] += LAM ** (k - 1) * v[:-k]
     return m
@@ -51,8 +56,8 @@ def _mc_amp(amp):
     X = np.array(S, dtype=np.float32)
     if amp > 0:
         sd = np.nanstd(X[rows][:, inf_cols], 0)
-        mm = m / m[rows].std()
-        X[:, inf_cols] += (amp * sd * w)[None, :] * mm[:, None].astype(np.float32)
+        mm = np.repeat(m / m[rows].std(0), _G['nch'], axis=1)      # column order = inf_cols
+        X[:, inf_cols] += ((amp * sd * w)[None, :] * mm).astype(np.float32)
     SF = L.StateFolds(X, rows, n_pc=A.CFG['n_pc'], n_folds=A.CFG['n_folds'])
     out = [L.memory_capacity(SF, U)[0]]
     for s in _G['shifts'] if amp in _G['null_amps'] else []:
@@ -75,19 +80,19 @@ def main():
     U = U_all[t0:t1]
     rows = A.valid_rows(S, t0, t1)
     rng = np.random.default_rng(20261116)
-    m = trace(U, rng)
     inf_users = np.flatnonzero(rng.random(len(users)) < FRAC)
+    m = traces(U, len(inf_users), rng)
     cols = (inf_users[:, None] * nch + np.arange(nch)).ravel()
     w = rng.uniform(-1, 1, len(cols)).astype(np.float32)
-    # oracle: the planted trace alone as the state (upper bound for what it carries)
-    SFo = L.StateFolds(np.c_[m, rng.normal(size=(len(m), 1))], rows, n_pc=2, n_folds=A.CFG['n_folds'])
+    # oracle: the planted traces alone as the state (upper bound for what they carry)
+    SFo = L.StateFolds(m, rows, n_pc=A.CFG['n_pc'], n_folds=A.CFG['n_folds'])
     oracle = L.memory_capacity(SFo, U)[0]
     allsh = L.null_shifts(len(U))
     shifts = [allsh[i] for i in np.linspace(0, len(allsh) - 1, args.null_shifts).astype(int)]
     print(f'{len(users)} users, {len(rows)} days, {len(inf_users)} informed; oracle MC {oracle:.3f}', flush=True)
     path = A.shared(S, 'posctrl'); del S
-    payload = dict(S_path=path, rows=rows, U=U, m=m, cols=cols, w=w, shifts=shifts,
-                   null_amps={0.0, 0.03, 0.05})
+    payload = dict(S_path=path, rows=rows, U=U, m=m, cols=cols, w=w, shifts=shifts, nch=nch,
+                   null_amps={0.0, 0.2, 0.5})
     with Pool(args.nproc, initializer=_init, initargs=(payload,)) as pool:
         res = dict(pool.map(_mc_amp, AMPS, chunksize=1))
     os.remove(path)
@@ -95,7 +100,7 @@ def main():
     q95 = np.percentile(null0, 95)
     lines = ['Positive control, round 2 (attention states), discovery half, P1 population',
              f'{len(users)} users ({len(inf_users)} informed, {nch} channels each), {len(rows)} days',
-             f'planted trace: lam {LAM}, {KTR} lags, oracle MC (trace alone as state) {oracle:.3f}',
+             f'planted traces: lam {LAM}, {KTR} lags, own news direction per user; oracle MC (traces alone as state, {A.CFG["n_pc"]} PCs) {oracle:.3f}',
              f'null: {len(shifts)} evenly spaced shifts of the unplanted states: mean {null0.mean():.4f}, '
              f'95th pct {q95:.4f}', '',
              'amp   MC       p (vs unplanted null)   own-null 95th pct']
