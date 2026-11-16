@@ -25,6 +25,14 @@ P4 middling links switch with the news: 2574992 live follow edges from 53878 use
   4a middling - far                               +0.0339 [+0.0242, +0.0435] p = 0.0010
   4b news-day excess for middling                 +0.0122 [+0.0076, +0.0165] p = 0.0010
 
+Secondary (not in the Holm family): P4 with positions only for accounts with >= 50 late-window posts; 2220396 edges from 47013 users
+    close     n  950157  switches per interaction day 0.939  log(high/low news rate) -0.028
+    middling  n  716493  switches per interaction day 1.119  log(high/low news rate) -0.030
+    far       n  553746  switches per interaction day 1.151  log(high/low news rate) -0.055
+  middling - close +0.0415 [+0.0325, +0.0504] p = 0.0010
+  middling - far   +0.0356 [+0.0244, +0.0470] p = 0.0010
+  news-day excess  +0.0122 [+0.0079, +0.0168] p = 0.0010
+
 One-sided p values, Holm-adjusted across the tests above:
   P1         p 0.2548  Holm 0.5096  fail
   P2         p 0.8209  Holm 0.8209  fail

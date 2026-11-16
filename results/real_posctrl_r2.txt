@@ -1,0 +1,17 @@
+Positive control, round 2 (attention states), discovery half, P1 population
+39129 users (11654 informed, 7 channels each), 231 days
+planted traces: lam 0.8, 14 lags, own news direction per user; oracle MC (traces alone as state, 20 PCs) 0.311
+null: 40 evenly spaced shifts of the unplanted states: mean -0.0010, 95th pct 0.0262
+
+amp   MC       p (vs unplanted null)   own-null 95th pct
+0.0   +0.0118  0.293                   0.0262
+0.02  +0.0119  0.293                      -
+0.05  +0.0119  0.293                      -
+0.1   +0.0125  0.268                      -
+0.2   +0.0115  0.293                   0.0242
+0.3   +0.0136  0.220                      -
+0.5   +0.0397  0.024                   0.0274
+1.0   +0.0782  0.024                      -
+
+smallest amplitude above the null 95th pct: 0.5
+seconds 166
