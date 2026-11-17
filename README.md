@@ -41,6 +41,15 @@ happens when a recommender uses that readout to decide who sees whom?
   the combined salience + agreement policy (difference-in-differences +0.45) and erodes
   the frozen-gate hub lead (+0.61 → +0.10) because high-gain hubs saturate under feed
   amplification. All nine pre-registered tests pass on seeds 300–323 (Holm p ≤ 0.00025).
+- **On Bluesky, the switching mechanism shows up; the memory loss cannot be measured.**
+  The test is pre-registered on half of the users and confirmed on the other half.
+  - With accounts placed by what they post about, links at middling distance switch on and
+    off more than close or far links, holding contact fixed (+0.038, +0.037), and drop
+    least on high-news days. All three tests pass (Holm p = 0.006) on both halves.
+  - Users' states hold no detectable news beyond the news itself (MC 0.014, p = 0.16).
+    A positive control shows the decoder needs very strong memory to see any, so that part
+    is untested, not refuted.
+  - See [REAL_RESULTS2.md](REAL_RESULTS2.md).
 
 ## The model ([bor/model.py](bor/model.py))
 
@@ -446,38 +455,34 @@ GDELT 1.0. Only aggregates are reported; post text stays in the git-ignored `dat
   - Reading: sentiment does not carry the news. Around 7 Oct 2023, Israel/Gaza posts rose
     about 70-fold while mean sentiment moved by 0.02. The memory claims are untested
     rather than refuted.
-- **Round 2, topic-attention states (in progress, discovery half only).**
+- **Round 2, topic-attention states.** Developed on discovery, pre-registered and pushed in
+  [REAL_PREREG2.md](REAL_PREREG2.md) (commit `16898c9`) before the confirmation half was
+  scored with attention. Results are in [REAL_RESULTS2.md](REAL_RESULTS2.md) and
+  `results/real_confirm_r2.txt`.
   - States: per user and day, log(1 + posts) on each of 6 fixed topics plus any
     news-lexicon mention. No carry-forward, so any persistence is the user's own posting.
   - Distance for P3/P4: a Hellinger-type distance between users' late-window attention
-    mixes. Per-topic stance was too sparse: only 1.7–9 k users have five or more posts on
-    any one topic.
-  - Exploration on discovery:
-    - 20 per-user PCs give MC ≈ +0.012, positive at every lag. Against 21 shifts:
-      null 95th percentile 0.016, p ≈ 0.23. With 5 PCs: MC 0.013, p ≈ 0.16.
-    - Crowd-level readouts (the user mean per channel, or crowd log shares) give MC ≤ 0.
-    - A time-reversed "future news" control was dominated by overfitting (−0.20 to
-      −0.29), so it was dropped.
-  - Code: `--round 2` in `scripts/real_analysis.py` and `real_report.py`, plus
-    `attention_states` and `attention_profiles` in `scripts/real_lib.py`. Pool workers
-    now memory-map the state matrix instead of each getting a copy.
+    mixes (cut points fitted on discovery: 0.151, 0.252).
+  - P1: MC 0.014 against a null 95th percentile of 0.026; p = 0.16. **Not detected.**
+    P2 and P3 are not interpretable.
+  - P4: within contact strata, middling links switch more than close (+0.038) and far
+    (+0.037) links, and drop least on high-news days (+0.009). **All three pass (Holm
+    p = 0.006) and replicate discovery.** They also hold when only accounts with ≥ 50 posts
+    get positions.
+  - Positive control (discovery): planted news traces become detectable only when they
+    make up about a fifth of a user's state variance (amplitude 0.5, MC 0.04; oracle
+    0.31). A failed P1 means "no memory this pipeline can see".
+  - Reading: on the attention axis, Bluesky shows the simulation's switching mechanism.
+    The memory consequences stay untested, because the decoder is too insensitive.
 
 ### Not done
 
-- **Round 2 smoke test.** It exited with code 4 and no traceback. Out of memory is
-  likely, since other processes held about 11 GB at the time, but it was not diagnosed.
-  The round-2 code is committed but has not run end to end.
-- **Round 2 discovery run.** P1–P4 have not been run through the pipeline. The cut
-  points (`results/real_cuts_r2.json`) have not been fitted.
-- **Round 2 pre-registration.** `REAL_PREREG2.md` is not written, committed or pushed.
-  It must list every variant tried on discovery (above) and drop the reversed control.
-- **Round 2 confirmation and write-up.** Not started. The confirmation half has been
-  scored once already, with sentiment, so it is a fresh holdout only for the attention
-  measure.
-- **Positive control.** Not done: inject a known fading-memory signal into the real
-  states to find the smallest MC the pipeline can detect. This would tell "measured
-  wrong" apart from "no memory".
-- **Pushing.** The round-1 results commit (`55b70ca`) has not been pushed to origin.
+- **A memory measure sensitive enough for P1–P3.** The positive control sets the bar: it
+  would need to resolve planted memory well below 20% of state variance. Options include
+  pooling users before decoding, longer windows, or per-topic news series. Each needs its
+  own pre-registration, and no fresh holdout half remains for it.
+- **A causal test of P4.** `feed_bookmarks.csv` allows only a weak before/after comparison
+  of feed subscriptions.
 
 ## Reproduce
 
@@ -497,6 +502,9 @@ python scripts/confirm_mechanism.py results/societies_300_324.npz # figures/mech
 python scripts/stage1_outrage.py results/societies_0_20.npz            # Stage 1 discovery; results/stage1_discovery.txt
 python scripts/stage1_outrage.py results/societies_300_324.npz --confirm # Stage 1 confirmation; figures/stage1_confirm.png
 ```
+
+Real-data test (needs the downloads in `data/`): see [REAL_RESULTS.md](REAL_RESULTS.md) (round 1)
+and [REAL_RESULTS2.md](REAL_RESULTS2.md) (round 2).
 
 ## Changes since the first write-up
 
@@ -524,3 +532,6 @@ python scripts/stage1_outrage.py results/societies_300_324.npz --confirm # Stage
     control at τ = 0.12), while moderate outrage (11.3) helps live salience by evacuating
     undecided links (57% → 23%) but fails to help the combined policy and erodes the
     frozen-gate hub advantage due to hub saturation.
+11. The real-data test was rerun with topic-attention states (round 2), pre-registered in
+    REAL_PREREG2.md and confirmed on the held-out users. The link-switching signature
+    replicates; memory is still not detectable, and a positive control shows why.

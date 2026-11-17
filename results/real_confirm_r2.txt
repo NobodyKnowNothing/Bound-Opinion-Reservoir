@@ -1,0 +1,49 @@
+Real-data test, round 2 (topic attention states), confirm half
+
+P1 there is memory: users 39233, days 231
+  MC = 0.014; shifted-news null mean -0.001, 95th pct 0.026, max 0.037 (207 shifts); p = 0.1587
+  per-lag increment: +0.000 +0.000 +0.001 +0.002 +0.002 +0.001 +0.000 +0.002 +0.002 +0.000 +0.000 +0.003 +0.000 +0.001
+  per-lag baseline R2: 0.62 0.60 0.56 0.52 0.48 0.45 0.42 0.36 0.28 0.22 0.17 0.08 0.04 -0.01
+
+P2 second-hand users hold less: 6050 matched pairs
+  activity (posts, active days) watchers 1389, 151; non-watchers 1246, 149
+  MC watchers 0.013, non-watchers 0.009, difference +0.004; pair-swap null 95th pct +0.006; p = 0.1692
+
+P3 edge-of-tolerance follows cost memory: 37490 non-watchers, 141 days, distance cut points [0.1514 0.2519]
+  groups by residual middling share (low -> high):
+    middling share 0.156 0.279 0.351 0.431 0.567
+    group MC       -0.011 -0.005 +0.024 -0.031 -0.035
+    mean posts     261 323 306 267 221
+    mean follows   133 150 154 144 130
+  slope -0.0075 per group; random-group null 5th pct -0.0131; p = 0.1940
+
+P4 middling links switch with the news: 2586755 live follow edges from 54064 users; 52 high-news and 51 low-news days
+    close     n 1055469  switches/edge 4.913  interaction days 5.13  switches per interaction day 0.957  log(high/low news rate) -0.019
+    middling  n  852037  switches/edge 4.337  interaction days 3.75  switches per interaction day 1.155  log(high/low news rate) -0.014
+    far       n  679249  switches/edge 4.056  interaction days 3.41  switches per interaction day 1.190  log(high/low news rate) -0.027
+  4a middling - close (within interaction strata) +0.0376 [+0.0294, +0.0456] p = 0.0010
+  4a middling - far                               +0.0370 [+0.0262, +0.0471] p = 0.0010
+  4b news-day excess for middling                 +0.0089 [+0.0049, +0.0131] p = 0.0010
+
+Secondary (not in the Holm family): P4 with positions only for accounts with >= 50 late-window posts; 2227024 edges from 47250 users
+    close     n  959385  switches per interaction day 0.936  log(high/low news rate) -0.026
+    middling  n  717674  switches per interaction day 1.122  log(high/low news rate) -0.028
+    far       n  549965  switches per interaction day 1.151  log(high/low news rate) -0.049
+  middling - close +0.0482 [+0.0387, +0.0572] p = 0.0010
+  middling - far   +0.0385 [+0.0272, +0.0508] p = 0.0010
+  news-day excess  +0.0097 [+0.0056, +0.0141] p = 0.0010
+
+One-sided p values, Holm-adjusted across the tests above:
+  P1         p 0.1587  Holm 0.4760  fail
+  P2         p 0.1692  Holm 0.4760  fail
+  P3         p 0.1940  Holm 0.4760  fail
+  P4a-close  p 0.0010  Holm 0.0060  PASS
+  P4a-far    p 0.0010  Holm 0.0060  PASS
+  P4b        p 0.0010  Holm 0.0060  PASS
+
+Verdict under the pre-registered rules (REAL_PREREG2.md):
+  1 there is memory: not supported
+  2 second-hand users hold less: not interpretable (prediction 1 failed: the measure is too blunt)
+  3 middling follows cost memory: not interpretable (prediction 1 failed: the measure is too blunt)
+  4a middling links switch more than close and far links: supported
+  4b more so on high-news days: supported

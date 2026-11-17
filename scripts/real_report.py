@@ -121,9 +121,25 @@ def main():
         ax[2].set(title='P3: MC by middling-follow share', xlabel='group (low → high share)',
                   ylabel='group MC')
     if 'p4' in r:
-        names = list(r['p4']['raw'])
-        ax[3].bar(names, [r['p4']['raw'][k]['per_int_day'] for k in names], color=['C2', 'C1', 'C0'])
-        ax[3].set(title='P4: switches per interaction day', ylabel='switches / interaction day')
+        # The tested contrasts (within interaction-day strata), not raw rates: raw rates mix
+        # in how often each class is contacted at all.
+        q = r['p4']
+        lab = ['middling\n− close', 'middling\n− far', 'news-day\nexcess']
+        est = [q['d_close'], q['d_far'], q['d_news']]
+        ci = [q['ci_close'], q['ci_far'], q['ci_news']]
+        x = np.arange(3)
+        ax[3].errorbar(x, est, yerr=[[e - c[0] for e, c in zip(est, ci)], [c[1] - e for e, c in zip(est, ci)]],
+                       fmt='o', color='C3', capsize=4, label='all accounts')
+        if 'p4s' in r:
+            s = r['p4s']
+            es = [s['d_close'], s['d_far'], s['d_news']]
+            cs = [s['ci_close'], s['ci_far'], s['ci_news']]
+            ax[3].errorbar(x + 0.15, es, yerr=[[e - c[0] for e, c in zip(es, cs)], [c[1] - e for e, c in zip(es, cs)]],
+                           fmt='s', color='0.5', capsize=4, label='≥ 50 posts (secondary)')
+            ax[3].legend(frameon=False, fontsize=8)
+        ax[3].axhline(0, color='0.3', lw=0.8)
+        ax[3].set_xticks(x, lab)
+        ax[3].set(title='P4: middling-link switching (95% CI)', ylabel='difference within contact strata')
     fig.tight_layout()
     fig.savefig(os.path.join(ROOT, 'figures', f'real_{half}{tag}.png'), dpi=120)
 
